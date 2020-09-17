@@ -7,6 +7,7 @@ import TWIML_codenames
 import TWIML_codenames_API_Client
 import my_model as model
 import asyncio
+import json
 
 async def check_status_loop():
     """
@@ -20,10 +21,14 @@ async def check_status():
     """
     Asks the server what the current status is for this player.
     """
-    await status = TWIML_codenames_API_Client.check_status(loop)
+    await status = TWIML_codenames_API_Client.check_status(loop, user_id, user_key)
 
 
 if __name__ == "__main__":
+    UserID_Key = json.load(open('myUserID-Key.txt', 'r'))
+    user_id = UserID_Key.user_id
+    user_key = UserID_Key.user_key
+
     loop = asyncio.get_event_loop()
     task = loop.create_task(check_status_loop())
 
