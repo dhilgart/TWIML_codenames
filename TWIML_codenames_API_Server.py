@@ -6,9 +6,25 @@ Dan Hilgart <dhilgart@gmail.com>
 from fastapi import FastAPI, Response
 import pickle
 
+root="/"
 app = FastAPI()
 
-@app.get("/")
-def send_as_bytes():
-    var_to_send=''
+def send_as_bytes(var_to_send):
     return Response(content=pickle.dumps(var_to_send))
+
+@app.get(root+"generate_clue/")
+def send_generate_clue_info():
+    return
+
+@app.post(root+"generate_clue/")
+def receive_generate_clue_info():
+    return
+
+@app.get(root+"generate_guesses/")
+def send_generate_guesses_info():
+    return
+
+@app.post(root+"generate_guesses/")
+def receive_generate_guesses_info():
+    return
+
