@@ -1,5 +1,5 @@
 """
-model_template.py: template for models to be used in the TWIMLfest 2020 codenames competition
+my_model.py: template for models to be used in the TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
