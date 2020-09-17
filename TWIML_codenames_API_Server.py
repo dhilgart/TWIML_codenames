@@ -5,7 +5,6 @@ Dan Hilgart <dhilgart@gmail.com>
 
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
-from typing import Optional
 import pickle
 
 class generate_clues_body(BaseModel):
@@ -22,7 +21,7 @@ def send_as_bytes(var_to_send):
     return Response(content=pickle.dumps(var_to_send))
 
 @app.get(root)
-def get_player_status(user_id: int, user_key: Optional[int] = 0):
+def get_player_status(user_id: int, user_key: int):
     return
 
 @app.get(root+"{game_id}/generate_clue/")
