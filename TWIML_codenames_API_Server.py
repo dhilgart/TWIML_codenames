@@ -5,6 +5,7 @@ Dan Hilgart <dhilgart@gmail.com>
 
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
+from typing import Optional
 import pickle
 
 class generate_clues_body(BaseModel):
@@ -20,21 +21,25 @@ app = FastAPI()
 def send_as_bytes(var_to_send):
     return Response(content=pickle.dumps(var_to_send))
 
-@app.get(root+"{game_id}/generate_clue")
+@app.get(root)
+def get_player_status(user_id: int, user_key: Optional[int] = 0):
+    return
+
+@app.get(root+"{game_id}/generate_clue/")
 def send_generate_clue_info(game_id: int, user_id: int, user_key: int):
     return
 
-@app.post(root+"{game_id}/generate_clue")
+@app.post(root+"{game_id}/generate_clue/")
 def receive_generate_clue_info(game_id: int, user_id: int, user_key: int, data: generate_clues_body):
     clue_word=data.clue_word
     clue_count=data.clue_count
     return
 
-@app.get(root+"{game_id}/generate_guesses")
+@app.get(root+"{game_id}/generate_guesses/")
 def send_generate_guesses_info(game_id: int, user_id: int, user_key: int):
     return
 
-@app.post(root+"{game_id}/generate_guesses")
+@app.post(root+"{game_id}/generate_guesses/")
 def receive_generate_guesses_info(game_id: int, user_id: int, user_key: int, data: generate_guesses_body):
     guesses = data.guesses
     return
