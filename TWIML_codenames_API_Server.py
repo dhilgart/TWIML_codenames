@@ -26,6 +26,8 @@ def send_generate_clue_info(game_id: int, user_id: int, user_key: int):
 
 @app.post(root+"{game_id}/generate_clue")
 def receive_generate_clue_info(game_id: int, user_id: int, user_key: int, data: generate_clues_body):
+    clue_word=data.clue_word
+    clue_count=data.clue_count
     return
 
 @app.get(root+"{game_id}/generate_guesses")
@@ -34,5 +36,6 @@ def send_generate_guesses_info(game_id: int, user_id: int, user_key: int):
 
 @app.post(root+"{game_id}/generate_guesses")
 def receive_generate_guesses_info(game_id: int, user_id: int, user_key: int, data: generate_guesses_body):
+    guesses = data.guesses
     return
 
