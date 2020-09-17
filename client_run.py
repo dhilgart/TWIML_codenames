@@ -21,7 +21,8 @@ async def check_status():
     """
     Asks the server what the current status is for this player.
     """
-    await status = TWIML_codenames_API_Client.check_status(loop, user_id, user_key)
+    await status = TWIML_codenames_API_Client.check_status(user_id, user_key)
+    #decide what to do next based on the status
 
 
 if __name__ == "__main__":
