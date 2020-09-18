@@ -3,6 +3,7 @@ server_run.py: runs the server for TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 """
 
+import TWIML_codenames_API_Server
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
 import pickle
