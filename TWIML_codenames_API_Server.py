@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from fastapi import Response
 import pickle
 import json
+import os.path
 import random
 
 client_active_timeout = timedelta(minutes = 5)
@@ -136,8 +137,11 @@ def read_playerlist():
     """
 
     """
-    player_data = json.load(open('playerlist.txt', 'r'))
-    playerlist = {int(player_id) : TWIML_codenames.Player(int(player_id), pdata['Elo'], pdata['record']) for player_id, data in player_data.items()}
+    if os.path.exists('playerlist.txt'):
+        player_data = json.load(open('playerlist.txt', 'r'))
+        playerlist = {int(player_id) : TWIML_codenames.Player(int(player_id), pdata['Elo'], pdata['record']) for player_id, data in player_data.items()}
+    else:
+        playerlist = {}
     return playerlist
 
 playerlist = read_playerlist()

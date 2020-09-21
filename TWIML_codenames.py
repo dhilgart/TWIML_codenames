@@ -3,8 +3,6 @@ TWIML_codenames.py: Module to simulate games for TWIMLfest 2020 codenames compet
 Dan Hilgart <dhilgart@gmail.com>
 """
 import numpy as np
-from copy import deepcopy
-from importlib.machinery import SourceFileLoader
 
 class Gameboard(object):
     """
