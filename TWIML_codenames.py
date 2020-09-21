@@ -134,8 +134,8 @@ class Game(object):
             else:
                 guesses = [] #if the clue word was illegal, set guesses to empty such that it ends the current turn
 
-            # If the spymaster specified a clue for 0 or infinity (infinity is represented by -1):
-            if (clue_count == 0) | (clue_count == -1):
+            # If the spymaster specified a clue for 0 or infinity (infinity is represented by 10):
+            if (clue_count == 0) | (clue_count == 10):
                 num_guesses = len(guesses)
             else:
                 num_guesses = min(clue_count + 1, len(guesses))
@@ -185,7 +185,7 @@ class Game(object):
         Calls out to the player's file to run the generate_clue() function.
         @param player(Player): player object for the player giving the clue
         @returns clue_word(str): the clue word
-        @returns clue_count(int): the number of words tied together by the clue (infinite represented by -1)
+        @returns clue_count(int): the number of words tied together by the clue (infinite represented by 10)
         """
         # deepcopy used to prevent the player's code from modifying the gameboard
         clue_word, clue_count = player.module.generate_clue(player.files_location,
@@ -197,7 +197,7 @@ class Game(object):
         """
         Calls out to the player's file to run the generate_guesses() function.
         @param clue_word(str): the clue word
-        @param clue_count(int): the number of words tied together by the clue (infinite represented by -1)
+        @param clue_count(int): the number of words tied together by the clue (infinite represented by 10)
         @param player(Player): player object for the player guessing
         @returns guesses(list[str]): list of words to be guessed (in descending order of priority)
         """
