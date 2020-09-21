@@ -113,42 +113,70 @@ class Game(object):
         self.operatives = [team1[1], team2[1]]
         self.curr_team = 1
         self.not_curr_team = 2
+        self.waiting_on = 'spymaster'
+        self.curr_clue_word = ''
+        self.curr_clue_count = -1
         self.game_end = False #Used to track whether the end of the game has been reached yet
         self.winning_team = 0 #Will be populated with the winning team when the end of the game has been reached
 
-    def run_game(self):
+    def solicit_clue_inputs(self):
         """
-        Runs a full game
-        @returns winning_team(list[Player]): the list of Player objects for the winning team
-        @returns winning_team_number(int): the team number of the winning team
-        @returns end_state(Gameboard): the final state of the gameboard
+        Returns the inputs to be used by the spymaster's generate_clue(team_num, gameboard) function
+        Called when the spymaster sends a get command to root+"{game_id}/generate_clue/"
+        Verification that it is the requesting player's turn takes place before this function is called
         """
-        self.curr_team = 1
+        return self.curr_team, self.gameboard
 
-        while self.game_end == False:
-            clue_word, clue_count = self.solicit_clue(self.spymasters[self.curr_team-1])
-            if self.legal_clue(clue_word):
-                guesses = self.solicit_guesses(clue_word, clue_count, self.operatives[self.curr_team-1])
-            else:
-                guesses = [] #if the clue word was illegal, set guesses to empty such that it ends the current turn
-
-            # If the spymaster specified a clue for 0 or infinity (infinity is represented by -1):
-            if (clue_count == 0) | (clue_count == -1):
-                num_guesses = len(guesses)
-            else:
-                num_guesses = min(clue_count + 1, len(guesses))
-            for i in range(num_guesses):
-                result = self.gameboard.tap(guesses[i])
-                self.check_game_over(result)
-                if result != self.curr_team:
-                    break #if a guess is not correct, stop guessing by breaking out of this for loop
+    def clue_given(self, clue_word, clue_count):
+        """
+        Takes the clue_word and clue_count from the spymaster and updates the game status accordingly
+        Called when the spymaster sends a post command to root+"{game_id}/generate_clue/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        if self.legal_clue(clue_word):
+            self.curr_clue_word = clue_word
+            self.curr_clue_count = clue_count
+            self.waiting_on = 'operative'
+        else: # if the clue word was illegal, end the current turn
             self.switch_teams()
+            self.waiting_on = 'spymaster'
 
-        winning_team = self.teams[self.winning_team-1]
-        winning_team_number = self.winning_team
-        end_state = self.gameboard
+    def solicit_guesses_inputs(self):
+        """
+        Returns the inputs to be used by the operative's generate_guesses(team_num, clue_word, clue_count,
+            unguessed_words, boardwords, boardmarkers) function
+        Called when the operative sends a get command to root+"{game_id}/generate_guesses/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        team_num = self.curr_team
+        clue_word = self.curr_clue_word
+        clue_count = self.curr_clue_count
+        unguessed_words = self.gameboard.unguessed_words()
+        boardwords = self.gameboard.boardwords
+        boardmarkers = self.gameboard.boardmarkers
+        return team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers
 
-        return winning_team, winning_team_number, end_state
+    def guesses_given(self, guesses):
+        """
+        Takes the gueses from the operative and updates the game status accordingly
+        Called when the operative sends a post command to root+"{game_id}/generate_guesses/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        # If the spymaster specified a clue for 0 or infinity (infinity is represented by 10):
+        if (self.curr_clue_count == 0) | (self.curr_clue_count == 10):
+            num_guesses = len(guesses)
+        else:
+            num_guesses = min(self.curr_clue_count + 1, len(guesses))
+
+        for i in range(num_guesses):
+            result = self.gameboard.tap(guesses[i])
+            self.check_game_over(result)
+            if self.game_end:
+                break # if the game is over, no need to continue guessing
+            if result != self.curr_team:
+                break  # if a guess is not correct, stop guessing by breaking out of this for loop
+        self.switch_teams()
+        self.waiting_on = 'spymaster'
 
     def legal_clue(self, clue_word):
         """
@@ -177,36 +205,6 @@ class Game(object):
             self.game_end = True
             self.winning_team = self.not_curr_team
             self.update_ratings()
-
-    def solicit_clue(self, player):
-        """
-        Calls out to the player's file to run the generate_clue() function.
-        @param player(Player): player object for the player giving the clue
-        @returns clue_word(str): the clue word
-        @returns clue_count(int): the number of words tied together by the clue (infinite represented by -1)
-        """
-        # deepcopy used to prevent the player's code from modifying the gameboard
-        clue_word, clue_count = player.module.generate_clue(player.files_location,
-                                                            deepcopy(self.curr_team),
-                                                            deepcopy(self.gameboard))
-        return clue_word, clue_count
-
-    def solicit_guesses(self, clue_word, clue_count, player):
-        """
-        Calls out to the player's file to run the generate_guesses() function.
-        @param clue_word(str): the clue word
-        @param clue_count(int): the number of words tied together by the clue (infinite represented by -1)
-        @param player(Player): player object for the player guessing
-        @returns guesses(list[str]): list of words to be guessed (in descending order of priority)
-        """
-        # deepcopy used to prevent the player's code from modifying the gameboard
-        guesses = player.module.generate_guesses(player.files_location,
-                                                 deepcopy(self.curr_team),
-                                                 clue_word, clue_count,
-                                                 self.gameboard.unguessed_words(),
-                                                 deepcopy(self.gameboard.boardwords),
-                                                 deepcopy(self.gameboard.boardmarkers))
-        return guesses
 
     def switch_teams(self):
         """

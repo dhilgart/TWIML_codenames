@@ -12,7 +12,7 @@ import os.path
 import random
 
 client_active_timeout = timedelta(minutes = 5)
-min_clients_to_start_new_game = 6 #needs to be >4 or else a new game will start with the same players each time a game ends
+min_clients_to_start_new_game = 6 # needs to be >4 or else a new game will start with the same players each time a game ends
 wordlist = [line.strip() for line in open('wordlist.txt', 'r').readlines()]
 
 class clientlist(object):
@@ -76,11 +76,11 @@ class client(object):
         self.prev_active = 0
         self.current_game_id = 0
 
-        #When creating a new client object, check whether the player exists in the playerlist.
+        # When creating a new client object, check whether the player exists in the playerlist.
         if player_id not in playerlist.keys():
-            #If not, create a Player object and add it to the playerlist:
+            # If not, create a Player object and add it to the playerlist:
             playerlist[player_id] = TWIML_codenames.Player(player_id)
-            #Then update the playerlist on disk:
+            # Then update the playerlist on disk:
             write_playerlist()
 
     def touch(self):
