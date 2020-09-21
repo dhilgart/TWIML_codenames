@@ -21,14 +21,14 @@ async def check_status():
     """
     Asks the server what the current status is for this player.
     """
-    await status = TWIML_codenames_API_Client.check_status(user_id, user_key)
+    await status = TWIML_codenames_API_Client.check_status(player_id, player_key)
     #decide what to do next based on the status
 
 
 if __name__ == "__main__":
-    UserID_Key = json.load(open('myUserID-Key.txt', 'r'))
-    user_id = UserID_Key.user_id
-    user_key = UserID_Key.user_key
+    PlayerID_Key = json.load(open('myPlayerID-Key.txt', 'r'))
+    player_id = int(PlayerID_Key['Player_ID'])
+    player_key = int(PlayerID_Key['Player_Key'])
 
     loop = asyncio.get_event_loop()
     task = loop.create_task(check_status_loop())

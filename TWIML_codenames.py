@@ -248,25 +248,17 @@ class Player(object):
     An object containing all the info needed to solicit clues and guesses from the given player's file and track the
     player's performance
     """
-    def __init__(self, player_id, files_location, model_filename):
+    def __init__(self, player_id, Elo = {'Spymaster': 1500., 'Operative': 1500.},
+                 record = {'Spymaster': {'W': 0, 'L': 0}, 'Operative': {'W': 0, 'L': 0}}):
         """
         @param player_id (int): the unique id for the current player
         @param files_location (str): the path to the folder where this player's files are stored
         @param model_filename (str): the name of the file for the model to be used for this player
         """
         self.player_id = player_id
-        self.files_location = files_location
-        self.Elo = {'Spymaster': 1500., 'Operative': 1500.}
-        self.record = {'Spymaster': {'W': 0, 'L': 0},
-                       'Operative': {'W': 0, 'L': 0}
-                       }
+        self.Elo = Elo
+        self.record = record
 
-        # Using the method below, the module must be given a name when loaded. This name does not have to be the same
-        # as the filename; it can be any arbitraty name. Each module loaded needs to have a unique name, or else the
-        # functions could call the wrong module, hence the player_id is assigned as the module name. Ints don't work as
-        # module names, hence the str()
-        loader = SourceFileLoader(str(player_id),files_location+'/'+model_filename)
-        self.module = loader.load_module(str(player_id))
 
     def update_ratings(self, role, result, own_team_avg_Elo, opp_team_avg_Elo):
         """
