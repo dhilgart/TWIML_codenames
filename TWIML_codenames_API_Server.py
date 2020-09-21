@@ -97,7 +97,10 @@ class gamelist(object):
     """
     def __init__(self):
         self.games = {}
-    
+
+    def __getitem__(self, key):
+        return self.games[key]
+
     def new_game(self, available_clients):
         """
         Creates a new game(s) with 4 clients chosen at random from the available_clients list
