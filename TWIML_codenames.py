@@ -119,7 +119,8 @@ class Game(object):
         self.waiting_inputs_since = 0
         self.curr_clue_word = ''
         self.curr_clue_count = -1
-        self.game_end = False #Used to track whether the end of the game has been reached yet
+        self.game_completed = False #Used to track whether the end of the game has been reached yet
+        self.game_timed_out = False
         self.game_result = {}
         self.game_start_time = datetime.now()
 
@@ -182,7 +183,7 @@ class Game(object):
         for i in range(num_guesses):
             result = self.gameboard.tap(guesses[i])
             self.check_game_over(result)
-            if self.game_end:
+            if self.game_completed:
                 break # if the game is over, no need to continue guessing
             if result != self.curr_team:
                 break  # if a guess is not correct, stop guessing by breaking out of this for loop
@@ -201,24 +202,24 @@ class Game(object):
 
     def check_game_over(self, result):
         """
-        Checks to see if one of the conditions has been met to end the game. If so, updates game_end to true and
+        Checks to see if one of the conditions has been met to end the game. If so, updates game_completed to true and
             populates game_result dict
         @param result (int): the team of the most recently tapped word. Used to check if the Assassin has been tapped
         """
         if result == -1:  # If the operative guessed the assassin word
-            self.game_end = True
+            self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}
             self.game_result['losing team'] = {'num' : self.curr_team}
         elif self.gameboard.remaining(self.curr_team) == 0: #if the current team has no words left to guess
-            self.game_end = True
+            self.game_completed = True
             self.game_result['winning team'] = {'num' : self.curr_team}
             self.game_result['losing team'] = {'num' : self.not_curr_team}
         elif self.gameboard.remaining(self.not_curr_team) == 0: #if the other (not-current) team has no words left to guess
-            self.game_end = True
+            self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}
             self.game_result['losing team'] = {'num' : self.curr_team}
 
-        if self.game_end:
+        if self.game_completed:
             for team_dict in game_result.values():
                 players = []
                 for player in self.teams[team_dict['num']-1]:
@@ -226,9 +227,9 @@ class Game(object):
                                     'Elo before update' : player.Elo
                                     })
                 team_dict['players'] = players
-            game_result['start time'] = self.game_start_time
-            game_result['end time'] = datetime.now()
-            game_result['final gameboard'] = self.gameboard
+            self.game_result['start time'] = self.game_start_time
+            self.game_result['end time'] = datetime.now()
+            self.game_result['final gameboard'] = self.gameboard
 
             self.update_ratings()
 
@@ -240,7 +241,6 @@ class Game(object):
 
                 for j, player in enumerate(team):
                     self.game_result[team_key]['players'][j]['Elo after update'] = player.Elo
-
 
     def switch_teams(self):
         """
@@ -284,7 +284,7 @@ class Game(object):
             wait_player = self.spymasters[self.curr_team-1]
         else:
             wait_player = self.operatives[self.curr_team - 1]
-        if self.waiting_query_since > self.waiting_input_since: #If waiting_query_since reset more recently than waiting_input_since 
+        if self.waiting_query_since > self.waiting_input_since:  # If waiting_query_since reset more recently than waiting_input_since
             waiting_for = 'query'
             wait_duration = datetime.now() - self.waiting_query_since
         else:
@@ -292,6 +292,24 @@ class Game(object):
             wait_duration = datetime.now() - self.waiting_input_since
         return wait_team, wait_role, wait_player, waiting_for, wait_duration
 
+    def check_timed_out(self, max_duration):
+        wait_team, wait_role, wait_player, waiting_for, wait_duration = self.waiting_on()
+        if wait_duration > max_duration:
+            self.game_timed_out = True
+            self.game_result = {'timed out waiting on': {'team': wait_team,
+                                                         'role': wait_role,
+                                                         'player_id': wait_player,
+                                                         'waiting for': waiting_for,
+                                                         'waiting duration': wait_duration
+                                                         },
+                                'teams' : {1 : [{'player_id' : player.player_id} for player in self.teams[0]],
+                                           2 : [{'player_id' : player.player_id} for player in self.teams[1]]
+                                           }
+                                'start time' : self.game_start_time,
+                                'end time' : datetime.now(),
+                                'final gameboard' : self.gameboard
+                                }
+        return self.game_timed_out
 
 class Player(object):
     """

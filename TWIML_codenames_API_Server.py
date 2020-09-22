@@ -135,15 +135,26 @@ class client(object):
         
         """
         for game_id, role_info in self.active_games:
-            if gamelist[game_id].game_end:
+            if gamelist[game_id].game_completed:
                 self.ended_games[game_id] = {'game_id' : game_id,
                                              'role_info' : role_info,
                                              'completed' : True,
                                              'result' : gamelist[game_id].game_result
                                              }
                 del self.active_games[game_id]
-            #elif game timed out:
-            #    del self.active_games[game_id]
+            elif gamelist[game_id].game_timed_out:
+                self.move_timed_out_game(game_id, role_info, gamelist[game_id].game_result)
+            else:
+                if gamelist[game_id].check_timed_out(client_active_timeout):
+                    self.move_timed_out_game(game_id, role_info, gamelist[game_id].game_result)
+            
+    def move_timed_out_game(self, game_id, role_info, game_result):
+        self.ended_games[game_id] = {'game_id': game_id,
+                                     'role_info': role_info,
+                                     'completed': False,
+                                     'result': game_result
+                                     }
+        del self.active_games[game_id]
 
     @property
     def active(self):
