@@ -241,8 +241,7 @@ class Game(object):
 
 class Player(object):
     """
-    An object containing all the info needed to solicit clues and guesses from the given player's file and track the
-    player's performance
+    An object containing all the info needed to track the player's performance
     """
     def __init__(self, player_id, Elo = {'Spymaster': 1500., 'Operative': 1500.},
                  record = {'Spymaster': {'W': 0, 'L': 0}, 'Operative': {'W': 0, 'L': 0}}):

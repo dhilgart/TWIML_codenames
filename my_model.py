@@ -7,12 +7,14 @@ import TWIML_codenames
 import numpy as np
 import pickle
 
-def generate_clue(team_num, gameboard):
+def generate_clue(game_id, team_num, gameboard):
     """
     This is the function that will be called when your bot is the Spymaster
     Your bot will need to provide a clue_word and a clue_count which will be used by your teammate's bot to guess words
     Make sure to provide a legal clue (see TWIML_codenames.py for how legality is assessed) or the turn will be skipped
     The following inputs will be provided:
+    @param game_id (int): the unique identifier for this game. Can be used to locally track info about this game as it 
+        plays out
     @param team_num (int): 1 if you are on the first team, 2 if you are on the second team. This matches with the
         gameboard key
     @param gameboard (TWIML_codenames.Gameboard): an object containing the current state of the gameboard. Note that
@@ -46,12 +48,14 @@ def generate_clue(team_num, gameboard):
     
     return clue_word, clue_count
 
-def generate_guesses(team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers):
+def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers):
     """
     This is the function that will be called when your bot is the Operative
     Your teammate's bot will provide you with a clue_word and a clue_count. Use them to generate a list of words to
         guess.
     The following inputs will be provided:
+    @param game_id (int): the unique identifier for this game. Can be used to locally track info about this game as it 
+        plays out
     @param team_num (int): 1 if you are on the first team, 2 if you are on the second team. This matches with the
         boardmarkers array
     @param clue_word (str): the one-word clue from your spymaster
