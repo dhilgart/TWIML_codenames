@@ -220,12 +220,27 @@ class Game(object):
 
         if self.game_end:
             for team_dict in game_result.values():
-                team_dict['players'] = [player.player_id for player in self.teams[team_dict['num']-1]]
+                players = []
+                for player in self.teams[team_dict['num']-1]:
+                    players.append({'player_id' : player.player_id,
+                                    'Elo before update' : player.Elo
+                                    })
+                team_dict['players'] = players
             game_result['start time'] = self.game_start_time
             game_result['end time'] = datetime.now()
             game_result['final gameboard'] = self.gameboard
-            #Add starting Elo and delta Elo to game_result for both teams?
+
             self.update_ratings()
+
+            for i, team in enumerate(self.teams):
+                if i == game_result['winning team']['num']-1:
+                    team_key = 'winning team'
+                else:
+                    team_key = 'losing team'
+
+                for j, player in enumerate(team):
+                    self.game_result[team_key]['players'][j]['Elo after update'] = player.Elo
+
 
     def switch_teams(self):
         """
