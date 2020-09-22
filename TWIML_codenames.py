@@ -285,3 +285,13 @@ class Player(object):
                               )
         delta_Elo = k * (result - expected_score)
         return delta_Elo
+
+def is_players_turn(game, player_id):
+    """
+
+    """
+    if game.waiting_on == 'spymaster':
+        waiting_on_player_id = game.spymasters[game.curr_team - 1].player_id
+    else:
+        waiting_on_player_id = game.operatives[game.curr_team - 1].player_id
+    return player_id == waiting_on_player_id

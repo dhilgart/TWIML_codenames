@@ -3,6 +3,7 @@ server_run.py: runs the server for TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 """
 
+import TWIML_codenames
 import TWIML_codenames_API_Server
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -28,13 +29,14 @@ def get_player_status(player_id: int, player_key: int):
             gamelist.new_game(clientlist.available_clients)
         return clientlist[player_id].return_status
     else:
-
-    return
+        return
 
 @app.get(root+"{game_id}/generate_clue/")
 def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
     if TWIML_codenames_API_Server.validate(player_id, player_key):
         clientlist.client_touch(player_id)
+        if TWIML_codenames.is_players_turn(gamelist[game_id], player_id):
+            
     else:
 
     return
