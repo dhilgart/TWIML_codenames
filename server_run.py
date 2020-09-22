@@ -27,7 +27,7 @@ def get_player_status(player_id: int, player_key: int):
         clientlist.client_touch(player_id)
         if clientlist.b_games_to_start:
             gamelist.new_game(clientlist.available_clients)
-        return clientlist[player_id].return_status()
+        return clientlist[player_id].return_status(gamelist)
     else:
         return
 

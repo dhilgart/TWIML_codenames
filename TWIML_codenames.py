@@ -116,11 +116,12 @@ class Game(object):
         self.not_curr_team = 2
         self.waiting_on = 'spymaster'
         self.waiting_query_since = datetime.now()
-        self.waiting_inputs_since = datetime.now()
+        self.waiting_inputs_since = 0
         self.curr_clue_word = ''
         self.curr_clue_count = -1
         self.game_end = False #Used to track whether the end of the game has been reached yet
-        self.winning_team = 0 #Will be populated with the winning team when the end of the game has been reached
+        self.game_result = {}
+        self.game_start_time = datetime.now()
 
     def solicit_clue_inputs(self):
         """
@@ -200,21 +201,30 @@ class Game(object):
 
     def check_game_over(self, result):
         """
-        Checks to see if one of the conditions has been met to end the game. If so, updates game_end to true and sets
-            winning_team = to the proper team number
+        Checks to see if one of the conditions has been met to end the game. If so, updates game_end to true and
+            populates game_result dict
         @param result (int): the team of the most recently tapped word. Used to check if the Assassin has been tapped
         """
         if result == -1:  # If the operative guessed the assassin word
             self.game_end = True
-            self.winning_team = self.not_curr_team
-            self.update_ratings()
+            self.game_result['winning team'] = {'num' : self.not_curr_team}
+            self.game_result['losing team'] = {'num' : self.curr_team}
         elif self.gameboard.remaining(self.curr_team) == 0: #if the current team has no words left to guess
             self.game_end = True
-            self.winning_team = self.curr_team
-            self.update_ratings()
+            self.game_result['winning team'] = {'num' : self.curr_team}
+            self.game_result['losing team'] = {'num' : self.not_curr_team}
         elif self.gameboard.remaining(self.not_curr_team) == 0: #if the other (not-current) team has no words left to guess
             self.game_end = True
-            self.winning_team = self.not_curr_team
+            self.game_result['winning team'] = {'num' : self.not_curr_team}
+            self.game_result['losing team'] = {'num' : self.curr_team}
+
+        if self.game_end:
+            for team_dict in game_result.values():
+                team_dict['players'] = [player.player_id for player in self.teams[team_dict['num']-1]]
+            game_result['start time'] = self.game_start_time
+            game_result['end time'] = datetime.now()
+            game_result['final gameboard'] = self.gameboard
+            #Add starting Elo and delta Elo to game_result for both teams?
             self.update_ratings()
 
     def switch_teams(self):
@@ -239,13 +249,13 @@ class Game(object):
         for i, player in enumerate(self.spymasters):
             not_i = (i == 0)*1 #1 if i = 0, 0 otherwise
             player.update_ratings(role = 'Spymaster',
-                                  result = (i+1 == self.winning_team)*1,
+                                  result = (i+1 == self.game_result['winning team']['num'])*1,
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
         for i, player in enumerate(self.operatives):
             not_i = (i == 0)*1 #1 if i = 0, 0 otherwise
             player.update_ratings(role = 'Operative',
-                                  result = (i+1 == self.winning_team)*1,
+                                  result = (i+1 == self.game_result['winning team']['num'])*1,
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
 

@@ -77,6 +77,7 @@ class client(object):
         self.last_active = datetime.now()
         self.prev_active = 0
         self.active_games = {}
+        self.ended_games = {}
 
         # When creating a new client object, check whether the player exists in the playerlist.
         if player_id not in playerlist.keys():
@@ -90,19 +91,25 @@ class client(object):
         self.last_active = datetime.now()
         
     def return_status(self, gamelist):
+        """
+        
+        """
+        self.check_for_ended_games()
+        
         game_statuses = {}
         for game_id, role_info in self.active_games:
             wait_team, wait_role, wait_player, waiting_for, wait_duration = gamelist[game_id].waiting_on()
             game_statuses[game_id] = {'game_id' : game_id,
+                                      'game start time' : gamelist[game_id].game_start_time,
                                       'role_info' : role_info,
                                       'waiting on' : {'team' : wait_team,
                                                       'role' : wait_role,
-                                                      'player_id' : wait_player_id,
+                                                      'player_id' : wait_player,
                                                       'waiting for' : waiting_for,
                                                       'waiting duration' : wait_duration
                                                       } 
-                                      })
-        return {'active games' : game_statuses}
+                                      }
+        return {'active games' : game_statuses, 'ended games' : self.ended_games}
         
     def new_game(self, game_id, game):
         if game.team1[0].player_id == self.player_id:
@@ -122,6 +129,21 @@ class client(object):
             role = 'operative'
             teammate_id = game.team2[0].player_id
         self.active_games[game_id] = {'team' : team, 'role' : role, 'teammate_id' : teammate_id}
+    
+    def check_for_ended_games(self, gamelist):
+        """
+        
+        """
+        for game_id, role_info in self.active_games:
+            if gamelist[game_id].game_end:
+                self.ended_games[game_id] = {'game_id' : game_id,
+                                             'role_info' : role_info,
+                                             'completed' : True,
+                                             'result' : gamelist[game_id].game_result
+                                             }
+                del self.active_games[game_id]
+            #elif game timed out:
+            #    del self.active_games[game_id]
 
     @property
     def active(self):
