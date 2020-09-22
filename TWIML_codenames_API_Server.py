@@ -13,6 +13,7 @@ import random
 
 client_active_timeout = timedelta(minutes = 5)
 min_clients_to_start_new_game = 6 # needs to be >4 or else a new game will start with the same players each time a game ends
+max_active_games_per_player = 1
 wordlist = [line.strip() for line in open('wordlist.txt', 'r').readlines()]
 
 class clientlist(object):
@@ -56,7 +57,8 @@ class clientlist(object):
         """
         Returns a list of currently active clients who aren't involved in a game already
         """
-        available_clients = [client for client in self.active_clients if client.current_game_id == 0]
+        available_clients = [client for client in self.active_clients 
+                             if client.num_active_games < max_active_games_per_player]
         return available_clients
 
     @property
@@ -74,7 +76,7 @@ class client(object):
         self.player_id = player_id
         self.last_active = datetime.now()
         self.prev_active = 0
-        self.current_game_id = 0
+        self.active_games = {}
 
         # When creating a new client object, check whether the player exists in the playerlist.
         if player_id not in playerlist.keys():
@@ -86,10 +88,48 @@ class client(object):
     def touch(self):
         self.prev_active = self.last_active
         self.last_active = datetime.now()
+        
+    def return_status(self, gamelist):
+        game_statuses = {}
+        for game_id, role_info in self.active_games:
+            wait_team, wait_role, wait_player, waiting_for, wait_duration = gamelist[game_id].waiting_on()
+            game_statuses[game_id] = {'game_id' : game_id,
+                                      'role_info' : role_info,
+                                      'waiting on' : {'team' : wait_team,
+                                                      'role' : wait_role,
+                                                      'player_id' : wait_player_id,
+                                                      'waiting for' : waiting_for,
+                                                      'waiting duration' : wait_duration
+                                                      } 
+                                      })
+        return {'active games' : game_statuses}
+        
+    def new_game(self, game_id, game):
+        if game.team1[0].player_id == self.player_id:
+            team = 1
+            role = 'spymaster'
+            teammate_id = game.team1[1].player_id
+        if game.team1[1].player_id == self.player_id:
+            team = 1
+            role = 'operative'
+            teammate_id = game.team1[0].player_id
+        if game.team2[0].player_id == self.player_id:
+            team = 2
+            role = 'spymaster'
+            teammate_id = game.team2[1].player_id
+        if game.team2[1].player_id == self.player_id:
+            team = 2
+            role = 'operative'
+            teammate_id = game.team2[0].player_id
+        self.active_games[game_id] = {'team' : team, 'role' : role, 'teammate_id' : teammate_id}
 
     @property
     def active(self):
         return (datetime.now()-self.last_active < client_active_timeout)
+
+    @property
+    def num_active_games(self):
+        return len(self.active_games)
 
 class gamelist(object):
     """
@@ -115,6 +155,8 @@ class gamelist(object):
             new_game_id = max(self.games.keys())+1
             gameboard = TWIML_codenames.gameboard(wordlist)
             self.games[new_game_id] = TWIML_codenames.Game(gameboard, team1, team2)
+            for client in game_clients:
+                client.new_game(new_game_id, self.games[new_game_id])
 
 
 def validate(player_id, player_key):

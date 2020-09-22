@@ -3,6 +3,7 @@ TWIML_codenames.py: Module to simulate games for TWIMLfest 2020 codenames compet
 Dan Hilgart <dhilgart@gmail.com>
 """
 import numpy as np
+from datetime import datetime, timedelta
 
 class Gameboard(object):
     """
@@ -114,6 +115,8 @@ class Game(object):
         self.curr_team = 1
         self.not_curr_team = 2
         self.waiting_on = 'spymaster'
+        self.waiting_query_since = datetime.now()
+        self.waiting_inputs_since = datetime.now()
         self.curr_clue_word = ''
         self.curr_clue_count = -1
         self.game_end = False #Used to track whether the end of the game has been reached yet
@@ -125,6 +128,8 @@ class Game(object):
         Called when the spymaster sends a get command to root+"{game_id}/generate_clue/"
         Verification that it is the requesting player's turn takes place before this function is called
         """
+        self.waiting_inputs_since = datetime.now()
+        
         return self.curr_team, self.gameboard
 
     def clue_given(self, clue_word, clue_count):
@@ -137,9 +142,11 @@ class Game(object):
             self.curr_clue_word = clue_word
             self.curr_clue_count = clue_count
             self.waiting_on = 'operative'
+            self.waiting_query_since = datetime.now()
         else: # if the clue word was illegal, end the current turn
             self.switch_teams()
             self.waiting_on = 'spymaster'
+            self.waiting_query_since = datetime.now()
 
     def solicit_guesses_inputs(self):
         """
@@ -154,6 +161,9 @@ class Game(object):
         unguessed_words = self.gameboard.unguessed_words()
         boardwords = self.gameboard.boardwords
         boardmarkers = self.gameboard.boardmarkers
+
+        self.waiting_inputs_since = datetime.now()
+        
         return team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers
 
     def guesses_given(self, guesses):
@@ -177,6 +187,7 @@ class Game(object):
                 break  # if a guess is not correct, stop guessing by breaking out of this for loop
         self.switch_teams()
         self.waiting_on = 'spymaster'
+        self.waiting_query_since = datetime.now()
 
     def legal_clue(self, clue_word):
         """
@@ -237,6 +248,24 @@ class Game(object):
                                   result = (i+1 == self.winning_team)*1,
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
+
+    def waiting_on(self):
+        """
+
+        """
+        wait_team = self.curr_team
+        wait_role = self.waiting_on
+        if self.waiting_on == 'spymaster':
+            wait_player = self.spymasters[self.curr_team-1]
+        else:
+            wait_player = self.operatives[self.curr_team - 1]
+        if self.waiting_query_since > self.waiting_input_since: #If waiting_query_since reset more recently than waiting_input_since 
+            waiting_for = 'query'
+            wait_duration = datetime.now() - self.waiting_query_since
+        else:
+            waiting_for = 'input'
+            wait_duration = datetime.now() - self.waiting_input_since
+        return wait_team, wait_role, wait_player, waiting_for, wait_duration
 
 
 class Player(object):
