@@ -30,7 +30,7 @@ def get_player_status(player_id: int, player_key: int):
         to_return = clientlist[player_id].return_status(gamelist)
         return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return
+        return 'no validation configured yet'
 
 @app.get(root+"{game_id}/generate_clue/")
 def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
@@ -44,8 +44,7 @@ def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
                          }
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-
-    return
+        return 'no validation configured yet'
 
 @app.post(root+"{game_id}/generate_clue/")
 def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, data: generate_clues_body):
@@ -56,8 +55,7 @@ def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, da
             clue_count = data.clue_count
             gamelist[game_id].clue_given(clue_word, clue_count)
     else:
-
-    return
+        return 'no validation configured yet'
 
 @app.get(root+"{game_id}/generate_guesses/")
 def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
@@ -76,8 +74,7 @@ def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
                          }
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-
-    return
+        return 'no validation configured yet'
 
 @app.post(root+"{game_id}/generate_guesses/")
 def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int, data: generate_guesses_body):
@@ -87,6 +84,5 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
             guesses = data.guesses
             gamelist[game_id].guesses_given(guesses)
     else:
-
-    return
+        return 'no validation configured yet'
 
