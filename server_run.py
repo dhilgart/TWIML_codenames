@@ -17,7 +17,7 @@ class generate_guesses_body(BaseModel):
 
 root="/"
 clientlist=TWIML_codenames_API_Server.clientlist()
-gamelist=TWIML_codenames_API_Server.gamelist()
+gamelist=TWIML_codenames_API_Server.gamelist(clientlist)
 
 app = FastAPI()
 
@@ -27,7 +27,8 @@ def get_player_status(player_id: int, player_key: int):
         clientlist.client_touch(player_id)
         if clientlist.b_games_to_start:
             gamelist.new_game(clientlist.available_clients)
-        return clientlist[player_id].return_status(gamelist)
+        to_return = clientlist[player_id].return_status(gamelist)
+        return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
         return
 

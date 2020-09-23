@@ -94,7 +94,7 @@ class client(object):
         """
         
         """
-        self.check_for_ended_games()
+        gamelist.check_for_ended_games(self.active_games.keys())
         
         game_statuses = {}
         for game_id, role_info in self.active_games:
@@ -129,29 +129,11 @@ class client(object):
             role = 'operative'
             teammate_id = game.team2[0].player_id
         self.active_games[game_id] = {'team' : team, 'role' : role, 'teammate_id' : teammate_id}
-    
-    def check_for_ended_games(self, gamelist):
-        """
-        
-        """
-        for game_id, role_info in self.active_games:
-            if gamelist[game_id].game_completed:
-                self.ended_games[game_id] = {'game_id' : game_id,
-                                             'role_info' : role_info,
-                                             'completed' : True,
-                                             'result' : gamelist[game_id].game_result
-                                             }
-                del self.active_games[game_id]
-            elif gamelist[game_id].game_timed_out:
-                self.move_timed_out_game(game_id, role_info, gamelist[game_id].game_result)
-            else:
-                if gamelist[game_id].check_timed_out(client_active_timeout):
-                    self.move_timed_out_game(game_id, role_info, gamelist[game_id].game_result)
-            
-    def move_timed_out_game(self, game_id, role_info, game_result):
-        self.ended_games[game_id] = {'game_id': game_id,
-                                     'role_info': role_info,
-                                     'completed': False,
+
+    def move_ended_game(self, game_id, b_completed, game_result):
+        self.ended_games[game_id] = {'game_id' : game_id,
+                                     'role_info': self.active_games[game_id],
+                                     'completed': b_completed,
                                      'result': game_result
                                      }
         del self.active_games[game_id]
@@ -168,11 +150,17 @@ class gamelist(object):
     """
     Keeps track of which games are currently in progress
     """
-    def __init__(self):
-        self.games = {}
+    def __init__(self, clientlist):
+        self.clientlist = clientlist
+        self.active_games = {}
+        self.ended_games = {}
 
     def __getitem__(self, key):
-        return self.games[key]
+        if key in self.active_games.keys():
+            return self.active_games[key]['Game object']
+        elif key in self.ended_games.keys():
+            return self.ended_games[key]
+        # need to add error checking if game isn't in either dict
 
     def new_game(self, available_clients):
         """
@@ -185,11 +173,38 @@ class gamelist(object):
             game_clients = available_clients[4*i:4*(i+1)]
             team1 = [playerlist[client.player_id] for client in game_clients[:2]]
             team2 = [playerlist[client.player_id] for client in game_clients[2:]]
-            new_game_id = max(self.games.keys())+1
+            new_game_id = max(self.active_games.keys() and self.ended_games.keys()) + 1
             gameboard = TWIML_codenames.gameboard(wordlist)
-            self.games[new_game_id] = TWIML_codenames.Game(gameboard, team1, team2)
+            self.active_games[new_game_id] = {'Game object' : TWIML_codenames.Game(gameboard, team1, team2),
+                                              'clients' : [client.player_id for client in game_clients]
+                                              }
             for client in game_clients:
                 client.new_game(new_game_id, self.games[new_game_id])
+
+    def check_for_ended_games(self, game_ids_to_check = self.active_games.keys()):
+        """
+
+        """
+        game_ids_to_check = [game_id for game_id in game_ids_to_check if game_id in self.active_games.keys()]
+        for game_id in game_ids_to_check:
+            if self.active_games[game_id]['Game object'].game_completed:
+                self.move_ended_game(game_id, b_completed=True)
+            elif self.active_games[game_id]['Game object'].check_timed_out(client_active_timeout):
+                self.move_ended_game(game_id, b_completed=False)
+
+    def move_ended_game(self, game_id, b_completed):
+        """
+
+        """
+        game_result = self.active_games[game_id]['Game object'].game_result
+        self.ended_games[game_id] = {'completed': b_completed,
+                                     'result': game_result
+                                     }
+        for client in self.active_games[game_id]['clients']:
+            clientlist[client].move_ended_game(game_id, b_completed, game_result)
+        del self.active_games[game_id]
+        if clientlist.b_games_to_start:
+            self.new_game(clientlist.available_clients)
 
 
 def validate(player_id, player_key):
