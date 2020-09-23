@@ -10,6 +10,7 @@ import pickle
 import json
 import os.path
 import random
+from copy import deepcopy
 
 client_active_timeout = timedelta(minutes = 5)
 min_clients_to_start_new_game = 6 # needs to be >4 or else a new game will start with the same players each time a game ends
@@ -35,7 +36,7 @@ class clientlist(object):
         if player_id in self.clients.keys():
             self.clients[player_id].touch()
         else:
-            self.add_client(self, player_id)
+            self.add_client(player_id)
 
     def add_client(self, player_id):
         """
@@ -57,7 +58,7 @@ class clientlist(object):
         """
         Returns a list of currently active clients who aren't involved in a game already
         """
-        available_clients = [client for client in self.active_clients 
+        available_clients = [client for client in self.active_clients
                              if client.num_active_games < max_active_games_per_player]
         return available_clients
 
@@ -82,14 +83,15 @@ class client(object):
         # When creating a new client object, check whether the player exists in the playerlist.
         if player_id not in playerlist.keys():
             # If not, create a Player object and add it to the playerlist:
-            playerlist[player_id] = TWIML_codenames.Player(player_id)
+            new_player = TWIML_codenames.Player(player_id)
+            playerlist[player_id] = deepcopy(new_player) #all new clients were being created with pointers to the same TWIML_codenames.Player object for some reason. This deepcopy seems to have fixed it.
             # Then update the playerlist on disk:
             write_playerlist()
 
     def touch(self):
         self.prev_active = self.last_active
         self.last_active = datetime.now()
-        
+
     def return_status(self, gamelist):
         """
         
@@ -97,8 +99,8 @@ class client(object):
         gamelist.check_for_ended_games(self.active_games.keys())
         
         game_statuses = {}
-        for game_id, role_info in self.active_games:
-            wait_team, wait_role, wait_player, waiting_for, wait_duration = gamelist[game_id].waiting_on()
+        for game_id, role_info in self.active_games.items():
+            wait_team, wait_role, wait_player, waiting_for, wait_duration = gamelist[game_id].waiting_on_info()
             game_statuses[game_id] = {'game_id' : game_id,
                                       'game start time' : gamelist[game_id].game_start_time,
                                       'role_info' : role_info,
@@ -112,22 +114,22 @@ class client(object):
         return {'active games' : game_statuses, 'ended games' : self.ended_games}
         
     def new_game(self, game_id, game):
-        if game.team1[0].player_id == self.player_id:
+        if game.teams[0][0].player_id == self.player_id:
             team = 1
             role = 'spymaster'
-            teammate_id = game.team1[1].player_id
-        if game.team1[1].player_id == self.player_id:
+            teammate_id = game.teams[0][1].player_id
+        if game.teams[0][1].player_id == self.player_id:
             team = 1
             role = 'operative'
-            teammate_id = game.team1[0].player_id
-        if game.team2[0].player_id == self.player_id:
+            teammate_id = game.teams[0][0].player_id
+        if game.teams[1][0].player_id == self.player_id:
             team = 2
             role = 'spymaster'
-            teammate_id = game.team2[1].player_id
-        if game.team2[1].player_id == self.player_id:
+            teammate_id = game.teams[1][1].player_id
+        if game.teams[1][1].player_id == self.player_id:
             team = 2
             role = 'operative'
-            teammate_id = game.team2[0].player_id
+            teammate_id = game.teams[1][0].player_id
         self.active_games[game_id] = {'team' : team, 'role' : role, 'teammate_id' : teammate_id}
 
     def move_ended_game(self, game_id, b_completed, game_result):
@@ -154,6 +156,7 @@ class gamelist(object):
         self.clientlist = clientlist
         self.active_games = {}
         self.ended_games = {}
+        self.next_game_id = 100001
 
     def __getitem__(self, key):
         if key in self.active_games.keys():
@@ -173,21 +176,23 @@ class gamelist(object):
             game_clients = available_clients[4*i:4*(i+1)]
             team1 = [playerlist[client.player_id] for client in game_clients[:2]]
             team2 = [playerlist[client.player_id] for client in game_clients[2:]]
-            new_game_id = max(self.active_games.keys() and self.ended_games.keys()) + 1
-            gameboard = TWIML_codenames.gameboard(wordlist)
+            new_game_id = self.next_game_id
+            self.next_game_id += 1
+            gameboard = TWIML_codenames.Gameboard(wordlist)
             self.active_games[new_game_id] = {'Game object' : TWIML_codenames.Game(gameboard, team1, team2),
                                               'clients' : [client.player_id for client in game_clients]
                                               }
             for client in game_clients:
-                client.new_game(new_game_id, self.games[new_game_id])
+                client.new_game(new_game_id, self.active_games[new_game_id]['Game object'])
 
-    def check_for_ended_games(self, game_ids_to_check = self.active_games.keys()):
+    def check_for_ended_games(self, game_ids_to_check):
         """
 
         """
         game_ids_to_check = [game_id for game_id in game_ids_to_check if game_id in self.active_games.keys()]
         for game_id in game_ids_to_check:
             if self.active_games[game_id]['Game object'].game_completed:
+                write_playerlist()
                 self.move_ended_game(game_id, b_completed=True)
             elif self.active_games[game_id]['Game object'].check_timed_out(client_active_timeout):
                 self.move_ended_game(game_id, b_completed=False)
@@ -201,10 +206,13 @@ class gamelist(object):
                                      'result': game_result
                                      }
         for client in self.active_games[game_id]['clients']:
-            clientlist[client].move_ended_game(game_id, b_completed, game_result)
+            self.clientlist[client].move_ended_game(game_id, b_completed, game_result)
         del self.active_games[game_id]
-        if clientlist.b_games_to_start:
-            self.new_game(clientlist.available_clients)
+        if self.clientlist.b_games_to_start:
+            self.new_game(self.clientlist.available_clients)
+
+    def is_active_game(self, game_id):
+        return (game_id in self.active_games.keys())
 
 
 def validate(player_id, player_key):
@@ -232,7 +240,7 @@ def read_playerlist():
     """
     if os.path.exists('playerlist.txt'):
         player_data = json.load(open('playerlist.txt', 'r'))
-        playerlist = {int(player_id) : TWIML_codenames.Player(int(player_id), pdata['Elo'], pdata['record']) for player_id, data in player_data.items()}
+        playerlist = {int(player_id) : TWIML_codenames.Player(int(player_id), pdata['Elo'], pdata['record']) for player_id, pdata in player_data.items()}
     else:
         playerlist = {}
     return playerlist

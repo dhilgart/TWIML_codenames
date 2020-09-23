@@ -4,6 +4,7 @@ Dan Hilgart <dhilgart@gmail.com>
 """
 import numpy as np
 from datetime import datetime, timedelta
+from copy import deepcopy
 
 class Gameboard(object):
     """
@@ -71,6 +72,7 @@ class Gameboard(object):
         @param word (str): the word to be located
         @returns x_loc, y_loc (int, int)
         """
+        #Add error handling for guess word does not exist or already tapped
         x_loc, y_loc = np.where(self.boardwords == word)
         return x_loc[0], y_loc[0]
 
@@ -116,7 +118,7 @@ class Game(object):
         self.not_curr_team = 2
         self.waiting_on = 'spymaster'
         self.waiting_query_since = datetime.now()
-        self.waiting_inputs_since = 0
+        self.waiting_inputs_since = datetime(2020,1,1)
         self.curr_clue_word = ''
         self.curr_clue_count = -1
         self.game_completed = False #Used to track whether the end of the game has been reached yet
@@ -220,11 +222,11 @@ class Game(object):
             self.game_result['losing team'] = {'num' : self.curr_team}
 
         if self.game_completed:
-            for team_dict in game_result.values():
+            for team_dict in self.game_result.values():
                 players = []
                 for player in self.teams[team_dict['num']-1]:
                     players.append({'player_id' : player.player_id,
-                                    'Elo before update' : player.Elo
+                                    'Elo before update' : deepcopy(player.Elo)
                                     })
                 team_dict['players'] = players
             self.game_result['start time'] = self.game_start_time
@@ -234,13 +236,13 @@ class Game(object):
             self.update_ratings()
 
             for i, team in enumerate(self.teams):
-                if i == game_result['winning team']['num']-1:
+                if i == self.game_result['winning team']['num']-1:
                     team_key = 'winning team'
                 else:
                     team_key = 'losing team'
 
                 for j, player in enumerate(team):
-                    self.game_result[team_key]['players'][j]['Elo after update'] = player.Elo
+                    self.game_result[team_key]['players'][j]['Elo after update'] = deepcopy(player.Elo)
 
     def switch_teams(self):
         """
@@ -274,7 +276,7 @@ class Game(object):
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
 
-    def waiting_on(self):
+    def waiting_on_info(self):
         """
 
         """
@@ -284,16 +286,16 @@ class Game(object):
             wait_player = self.spymasters[self.curr_team-1]
         else:
             wait_player = self.operatives[self.curr_team - 1]
-        if self.waiting_query_since > self.waiting_input_since:  # If waiting_query_since reset more recently than waiting_input_since
+        if self.waiting_query_since > self.waiting_inputs_since:  # If waiting_query_since reset more recently than waiting_inputs_since
             waiting_for = 'query'
             wait_duration = datetime.now() - self.waiting_query_since
         else:
             waiting_for = 'input'
-            wait_duration = datetime.now() - self.waiting_input_since
-        return wait_team, wait_role, wait_player, waiting_for, wait_duration
+            wait_duration = datetime.now() - self.waiting_inputs_since
+        return wait_team, wait_role, wait_player.player_id, waiting_for, wait_duration
 
     def check_timed_out(self, max_duration):
-        wait_team, wait_role, wait_player, waiting_for, wait_duration = self.waiting_on()
+        wait_team, wait_role, wait_player, waiting_for, wait_duration = self.waiting_on_info()
         if wait_duration > max_duration:
             self.game_timed_out = True
             self.game_result = {'timed out waiting on': {'team': wait_team,
@@ -304,7 +306,7 @@ class Game(object):
                                                          },
                                 'teams' : {1 : [{'player_id' : player.player_id} for player in self.teams[0]],
                                            2 : [{'player_id' : player.player_id} for player in self.teams[1]]
-                                           }
+                                           },
                                 'start time' : self.game_start_time,
                                 'end time' : datetime.now(),
                                 'final gameboard' : self.gameboard
@@ -325,7 +327,6 @@ class Player(object):
         self.player_id = player_id
         self.Elo = Elo
         self.record = record
-
 
     def update_ratings(self, role, result, own_team_avg_Elo, opp_team_avg_Elo):
         """
