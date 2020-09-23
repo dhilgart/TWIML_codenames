@@ -91,12 +91,12 @@ class client(object):
     def touch(self):
         self.prev_active = self.last_active
         self.last_active = datetime.now()
-
+        
     def return_status(self, gamelist):
         """
         
         """
-        gamelist.check_for_ended_games(self.active_games.keys())
+        gamelist.check_for_ended_games(self.active_games.keys()) # The check for game timeouts are only called when players in that game check in
         
         game_statuses = {}
         for game_id, role_info in self.active_games.items():
