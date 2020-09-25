@@ -236,7 +236,7 @@ class Client(object):
                                                       'waiting duration' : wait_duration
                                                       } 
                                       }
-        return {'active games' : game_statuses, 'ended games' : self.ended_games.keys()}
+        return {'active games' : game_statuses, 'ended games' : [x for x in self.ended_games.keys()]}
         
     def new_game(self, game_id, game):
         """
