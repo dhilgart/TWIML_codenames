@@ -21,6 +21,8 @@ notes:
 import TWIML_codenames
 import TWIML_codenames_API_Server
 from fastapi import FastAPI
+# pydantic.BaseModel is used to define the expected variable types for the body of the post requests such that they are
+# properly recognized as the body:
 from pydantic import BaseModel
 
 class generate_clues_body(BaseModel):
@@ -39,8 +41,8 @@ class generate_guesses_body(BaseModel):
 root="/"
 
 #When starting the server, create the clientlist and gamelist objects for keeping track of the clients and the games
-clientlist=TWIML_codenames_API_Server.clientlist()
-gamelist=TWIML_codenames_API_Server.gamelist(clientlist)
+clientlist=TWIML_codenames_API_Server.Clientlist()
+gamelist=TWIML_codenames_API_Server.Gamelist(clientlist)
 
 app = FastAPI() # called by uvicorn server_run:app
 
