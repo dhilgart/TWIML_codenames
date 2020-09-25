@@ -1,27 +1,20 @@
 """
-model_template.py: template for models to be used in the TWIMLfest 2020 codenames competition
+my_model.py: template for models to be used in the TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
 import TWIML_codenames
 import numpy as np
 import pickle
-"""
-<insert some way to communicate what imports (and versions) are available in the environment we will be using:>
-pandas (version ?)
-torch (version ?)
-tensorflow (version ?)
-etc.
-"""
 
-def generate_clue(files_location, team_num, gameboard):
+def generate_clue(game_id, team_num, gameboard):
     """
     This is the function that will be called when your bot is the Spymaster
     Your bot will need to provide a clue_word and a clue_count which will be used by your teammate's bot to guess words
     Make sure to provide a legal clue (see TWIML_codenames.py for how legality is assessed) or the turn will be skipped
     The following inputs will be provided:
-    @param files_location (str): the path to your bot's directory which contains all files you submit (including this
-        one). You may also write and read new files from this location. NOTE: does not include the trailing "/"
+    @param game_id (int): the unique identifier for this game. Can be used to locally track info about this game as it 
+        plays out
     @param team_num (int): 1 if you are on the first team, 2 if you are on the second team. This matches with the
         gameboard key
     @param gameboard (TWIML_codenames.Gameboard): an object containing the current state of the gameboard. Note that
@@ -48,21 +41,21 @@ def generate_clue(files_location, team_num, gameboard):
                 To give a clue for infinity, provide an int of 10.
     """
     ### YOUR CODE HERE
-    wordlist = pickle.load( open( files_location + "/wordlist.p", "rb" ) ) #load the wordlist from a pickled file in my directory
+    wordlist = pickle.load( open("wordlist.p", "rb" ) ) #load the wordlist from a pickled file in my directory
     clue_word = np.random.choice(wordlist) #pick a clue word at random from the wordlist
     clue_count = np.random.randint(3) + 1 #give a random clue_count of 1, 2, or 3
     ### END YOUR CODE
     
     return clue_word, clue_count
 
-def generate_guesses(files_location, team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers):
+def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers):
     """
     This is the function that will be called when your bot is the Operative
     Your teammate's bot will provide you with a clue_word and a clue_count. Use them to generate a list of words to
         guess.
     The following inputs will be provided:
-    @param files_location (str): the path to your bot's directory which contains all files you submit (including this
-        one) You may also write and read new files from this location. NOTE: does not include the trailing "/"
+    @param game_id (int): the unique identifier for this game. Can be used to locally track info about this game as it 
+        plays out
     @param team_num (int): 1 if you are on the first team, 2 if you are on the second team. This matches with the
         boardmarkers array
     @param clue_word (str): the one-word clue from your spymaster

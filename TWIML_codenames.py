@@ -3,8 +3,8 @@ TWIML_codenames.py: Module to simulate games for TWIMLfest 2020 codenames compet
 Dan Hilgart <dhilgart@gmail.com>
 """
 import numpy as np
+from datetime import datetime, timedelta
 from copy import deepcopy
-from importlib.machinery import SourceFileLoader
 
 class Gameboard(object):
     """
@@ -72,6 +72,7 @@ class Gameboard(object):
         @param word (str): the word to be located
         @returns x_loc, y_loc (int, int)
         """
+        #Add error handling for guess word does not exist or already tapped
         x_loc, y_loc = np.where(self.boardwords == word)
         return x_loc[0], y_loc[0]
 
@@ -115,42 +116,82 @@ class Game(object):
         self.operatives = [team1[1], team2[1]]
         self.curr_team = 1
         self.not_curr_team = 2
-        self.game_end = False #Used to track whether the end of the game has been reached yet
-        self.winning_team = 0 #Will be populated with the winning team when the end of the game has been reached
+        self.waiting_on = 'spymaster'
+        self.waiting_query_since = datetime.now()
+        self.waiting_inputs_since = datetime(2020,1,1)
+        self.curr_clue_word = ''
+        self.curr_clue_count = -1
+        self.game_completed = False #Used to track whether the end of the game has been reached yet
+        self.game_timed_out = False
+        self.game_result = {}
+        self.game_start_time = datetime.now()
 
-    def run_game(self):
+    def solicit_clue_inputs(self):
         """
-        Runs a full game
-        @returns winning_team(list[Player]): the list of Player objects for the winning team
-        @returns winning_team_number(int): the team number of the winning team
-        @returns end_state(Gameboard): the final state of the gameboard
+        Returns the inputs to be used by the spymaster's generate_clue(team_num, gameboard) function
+        Called when the spymaster sends a get command to root+"{game_id}/generate_clue/"
+        Verification that it is the requesting player's turn takes place before this function is called
         """
-        self.curr_team = 1
+        self.waiting_inputs_since = datetime.now()
+        
+        return self.curr_team, self.gameboard
 
-        while self.game_end == False:
-            clue_word, clue_count = self.solicit_clue(self.spymasters[self.curr_team-1])
-            if self.legal_clue(clue_word):
-                guesses = self.solicit_guesses(clue_word, clue_count, self.operatives[self.curr_team-1])
-            else:
-                guesses = [] #if the clue word was illegal, set guesses to empty such that it ends the current turn
-
-            # If the spymaster specified a clue for 0 or infinity (infinity is represented by 10):
-            if (clue_count == 0) | (clue_count == 10):
-                num_guesses = len(guesses)
-            else:
-                num_guesses = min(clue_count + 1, len(guesses))
-            for i in range(num_guesses):
-                result = self.gameboard.tap(guesses[i])
-                self.check_game_over(result)
-                if result != self.curr_team:
-                    break #if a guess is not correct, stop guessing by breaking out of this for loop
+    def clue_given(self, clue_word, clue_count):
+        """
+        Takes the clue_word and clue_count from the spymaster and updates the game status accordingly
+        Called when the spymaster sends a post command to root+"{game_id}/generate_clue/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        if self.legal_clue(clue_word):
+            self.curr_clue_word = clue_word
+            self.curr_clue_count = clue_count
+            self.waiting_on = 'operative'
+            self.waiting_query_since = datetime.now()
+        else: # if the clue word was illegal, end the current turn
             self.switch_teams()
+            self.waiting_on = 'spymaster'
+            self.waiting_query_since = datetime.now()
 
-        winning_team = self.teams[self.winning_team-1]
-        winning_team_number = self.winning_team
-        end_state = self.gameboard
+    def solicit_guesses_inputs(self):
+        """
+        Returns the inputs to be used by the operative's generate_guesses(team_num, clue_word, clue_count,
+            unguessed_words, boardwords, boardmarkers) function
+        Called when the operative sends a get command to root+"{game_id}/generate_guesses/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        team_num = self.curr_team
+        clue_word = self.curr_clue_word
+        clue_count = self.curr_clue_count
+        unguessed_words = self.gameboard.unguessed_words()
+        boardwords = self.gameboard.boardwords
+        boardmarkers = self.gameboard.boardmarkers
 
-        return winning_team, winning_team_number, end_state
+        self.waiting_inputs_since = datetime.now()
+        
+        return team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers
+
+    def guesses_given(self, guesses):
+        """
+        Takes the gueses from the operative and updates the game status accordingly
+        Called when the operative sends a post command to root+"{game_id}/generate_guesses/"
+        Verification that it is the requesting player's turn takes place before this function is called
+        """
+        # If the spymaster specified a clue for 0 or infinity (infinity is represented by 10):
+        if (self.curr_clue_count == 0) | (self.curr_clue_count == 10):
+            num_guesses = len(guesses)
+        else:
+            num_guesses = min(self.curr_clue_count + 1, len(guesses))
+
+        for i in range(num_guesses):
+            result = self.gameboard.tap(guesses[i])
+            self.check_game_over(result)
+            if self.game_completed:
+                break # if the game is over, no need to continue guessing
+            if result != self.curr_team:
+                break  # if a guess is not correct, stop guessing by breaking out of this for loop
+        self.switch_teams()
+        self.waiting_on = 'spymaster'
+        self.waiting_query_since = datetime.now()
 
     def legal_clue(self, clue_word):
         """
@@ -163,52 +204,45 @@ class Game(object):
 
     def check_game_over(self, result):
         """
-        Checks to see if one of the conditions has been met to end the game. If so, updates game_end to true and sets
-            winning_team = to the proper team number
+        Checks to see if one of the conditions has been met to end the game. If so, updates game_completed to true and
+            populates game_result dict
         @param result (int): the team of the most recently tapped word. Used to check if the Assassin has been tapped
         """
         if result == -1:  # If the operative guessed the assassin word
-            self.game_end = True
-            self.winning_team = self.not_curr_team
-            self.update_ratings()
+            self.game_completed = True
+            self.game_result['winning team'] = {'num' : self.not_curr_team}
+            self.game_result['losing team'] = {'num' : self.curr_team}
         elif self.gameboard.remaining(self.curr_team) == 0: #if the current team has no words left to guess
-            self.game_end = True
-            self.winning_team = self.curr_team
-            self.update_ratings()
+            self.game_completed = True
+            self.game_result['winning team'] = {'num' : self.curr_team}
+            self.game_result['losing team'] = {'num' : self.not_curr_team}
         elif self.gameboard.remaining(self.not_curr_team) == 0: #if the other (not-current) team has no words left to guess
-            self.game_end = True
-            self.winning_team = self.not_curr_team
+            self.game_completed = True
+            self.game_result['winning team'] = {'num' : self.not_curr_team}
+            self.game_result['losing team'] = {'num' : self.curr_team}
+
+        if self.game_completed:
+            for team_dict in self.game_result.values():
+                players = []
+                for player in self.teams[team_dict['num']-1]:
+                    players.append({'player_id' : player.player_id,
+                                    'Elo before update' : deepcopy(player.Elo)
+                                    })
+                team_dict['players'] = players
+            self.game_result['start time'] = self.game_start_time
+            self.game_result['end time'] = datetime.now()
+            self.game_result['final gameboard'] = self.gameboard
+
             self.update_ratings()
 
-    def solicit_clue(self, player):
-        """
-        Calls out to the player's file to run the generate_clue() function.
-        @param player(Player): player object for the player giving the clue
-        @returns clue_word(str): the clue word
-        @returns clue_count(int): the number of words tied together by the clue (infinite represented by 10)
-        """
-        # deepcopy used to prevent the player's code from modifying the gameboard
-        clue_word, clue_count = player.module.generate_clue(player.files_location,
-                                                            deepcopy(self.curr_team),
-                                                            deepcopy(self.gameboard))
-        return clue_word, clue_count
+            for i, team in enumerate(self.teams):
+                if i == self.game_result['winning team']['num']-1:
+                    team_key = 'winning team'
+                else:
+                    team_key = 'losing team'
 
-    def solicit_guesses(self, clue_word, clue_count, player):
-        """
-        Calls out to the player's file to run the generate_guesses() function.
-        @param clue_word(str): the clue word
-        @param clue_count(int): the number of words tied together by the clue (infinite represented by 10)
-        @param player(Player): player object for the player guessing
-        @returns guesses(list[str]): list of words to be guessed (in descending order of priority)
-        """
-        # deepcopy used to prevent the player's code from modifying the gameboard
-        guesses = player.module.generate_guesses(player.files_location,
-                                                 deepcopy(self.curr_team),
-                                                 clue_word, clue_count,
-                                                 self.gameboard.unguessed_words(),
-                                                 deepcopy(self.gameboard.boardwords),
-                                                 deepcopy(self.gameboard.boardmarkers))
-        return guesses
+                for j, player in enumerate(team):
+                    self.game_result[team_key]['players'][j]['Elo after update'] = deepcopy(player.Elo)
 
     def switch_teams(self):
         """
@@ -232,41 +266,67 @@ class Game(object):
         for i, player in enumerate(self.spymasters):
             not_i = (i == 0)*1 #1 if i = 0, 0 otherwise
             player.update_ratings(role = 'Spymaster',
-                                  result = (i+1 == self.winning_team)*1,
+                                  result = (i+1 == self.game_result['winning team']['num'])*1,
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
         for i, player in enumerate(self.operatives):
             not_i = (i == 0)*1 #1 if i = 0, 0 otherwise
             player.update_ratings(role = 'Operative',
-                                  result = (i+1 == self.winning_team)*1,
+                                  result = (i+1 == self.game_result['winning team']['num'])*1,
                                   own_team_avg_Elo = avg_starting_Elo[i],
                                   opp_team_avg_Elo = avg_starting_Elo[not_i])
 
+    def waiting_on_info(self):
+        """
+
+        """
+        wait_team = self.curr_team
+        wait_role = self.waiting_on
+        if self.waiting_on == 'spymaster':
+            wait_player = self.spymasters[self.curr_team-1]
+        else:
+            wait_player = self.operatives[self.curr_team - 1]
+        if self.waiting_query_since > self.waiting_inputs_since:  # If waiting_query_since reset more recently than waiting_inputs_since
+            waiting_for = 'query'
+            wait_duration = datetime.now() - self.waiting_query_since
+        else:
+            waiting_for = 'input'
+            wait_duration = datetime.now() - self.waiting_inputs_since
+        return wait_team, wait_role, wait_player.player_id, waiting_for, wait_duration
+
+    def check_timed_out(self, max_duration):
+        wait_team, wait_role, wait_player, waiting_for, wait_duration = self.waiting_on_info()
+        if wait_duration > max_duration:
+            self.game_timed_out = True
+            self.game_result = {'timed out waiting on': {'team': wait_team,
+                                                         'role': wait_role,
+                                                         'player_id': wait_player,
+                                                         'waiting for': waiting_for,
+                                                         'waiting duration': wait_duration
+                                                         },
+                                'teams' : {1 : [{'player_id' : player.player_id} for player in self.teams[0]],
+                                           2 : [{'player_id' : player.player_id} for player in self.teams[1]]
+                                           },
+                                'start time' : self.game_start_time,
+                                'end time' : datetime.now(),
+                                'final gameboard' : self.gameboard
+                                }
+        return self.game_timed_out
 
 class Player(object):
     """
-    An object containing all the info needed to solicit clues and guesses from the given player's file and track the
-    player's performance
+    An object containing all the info needed to track the player's performance
     """
-    def __init__(self, player_id, files_location, model_filename):
+    def __init__(self, player_id, Elo = {'Spymaster': 1500., 'Operative': 1500.},
+                 record = {'Spymaster': {'W': 0, 'L': 0}, 'Operative': {'W': 0, 'L': 0}}):
         """
         @param player_id (int): the unique id for the current player
         @param files_location (str): the path to the folder where this player's files are stored
         @param model_filename (str): the name of the file for the model to be used for this player
         """
         self.player_id = player_id
-        self.files_location = files_location
-        self.Elo = {'Spymaster': 1500., 'Operative': 1500.}
-        self.record = {'Spymaster': {'W': 0, 'L': 0},
-                       'Operative': {'W': 0, 'L': 0}
-                       }
-
-        # Using the method below, the module must be given a name when loaded. This name does not have to be the same
-        # as the filename; it can be any arbitraty name. Each module loaded needs to have a unique name, or else the
-        # functions could call the wrong module, hence the player_id is assigned as the module name. Ints don't work as
-        # module names, hence the str()
-        loader = SourceFileLoader(str(player_id),files_location+'/'+model_filename)
-        self.module = loader.load_module(str(player_id))
+        self.Elo = Elo
+        self.record = record
 
     def update_ratings(self, role, result, own_team_avg_Elo, opp_team_avg_Elo):
         """
@@ -298,3 +358,13 @@ class Player(object):
                               )
         delta_Elo = k * (result - expected_score)
         return delta_Elo
+
+def is_players_turn(game, player_id):
+    """
+
+    """
+    if game.waiting_on == 'spymaster':
+        waiting_on_player_id = game.spymasters[game.curr_team - 1].player_id
+    else:
+        waiting_on_player_id = game.operatives[game.curr_team - 1].player_id
+    return player_id == waiting_on_player_id
