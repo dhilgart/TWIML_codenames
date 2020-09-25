@@ -24,6 +24,8 @@ from fastapi import FastAPI
 # pydantic.BaseModel is used to define the expected variable types for the body of the post requests such that they are
 # properly recognized as the body:
 from pydantic import BaseModel
+import uvicorn
+import os
 
 class generate_clues_body(BaseModel):
     """
@@ -214,3 +216,8 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
         return 'Will not get here: no validation configured yet'
+
+if __name__ == "__main__":
+   PORT = os.environ.get("PORT",8000)
+   uvicorn.run("server_run:app", host="0.0.0.0", port=PORT                , log_level="debug"
+                )
