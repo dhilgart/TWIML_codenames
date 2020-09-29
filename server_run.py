@@ -219,5 +219,5 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
 
 if __name__ == "__main__":
    PORT = os.environ.get("PORT",8000)
-   uvicorn.run("server_run:app", host="0.0.0.0", port=PORT                , log_level="debug"
+   uvicorn.run("server_run:app", host="0.0.0.0", port=PORT, log_level="debug"
                 )

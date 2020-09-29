@@ -1,5 +1,6 @@
 wordlist.txt
 playerlist.txt
 
+.idea/
 .ipynb_checkpoints/
 __pycache__/
