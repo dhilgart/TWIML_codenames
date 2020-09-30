@@ -2,6 +2,9 @@
 TWIML_codenames.py: Module to simulate games for TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 """
+import nltk
+nltk.download('wordnet')
+from nltk.stem import WordNetLemmatizer
 import numpy as np
 from datetime import datetime, timedelta
 from copy import deepcopy
@@ -199,7 +202,36 @@ class Game(object):
         @param clue_word (str): the clue word provided by the spymaster
         @returns legal_clue(bool): True if the clue is legal, False if illegal
         """
-        #--------------TBD--------------#
+        unguessed_words=self.gameboard.unguessed_words()
+
+        #Check partial words:
+        for word in unguessed_words:
+            if clue_word in word:
+                return False
+            if word in clue_word:
+                return False
+
+        #Check Lemmas
+        illegal_lemmas=set()
+        for word in unguessed_words:
+            for pos in ['n',  # noun
+                        'v',  # verb
+                        'a',  # adjective
+                        's',  # adjective satellite
+                        'r'   # adverb
+                        ]:
+                illegal_lemmas.add(wordnet_lemmatizer.lemmatize(word, pos=pos))
+
+        for pos in ['n',  # noun
+                    'v',  # verb
+                    'a',  # adjective
+                    's',  # adjective satellite
+                    'r'  # adverb
+                    ]:
+            if wordnet_lemmatizer.lemmatize(clue_word, pos=pos) in illegal_lemmas:
+                return False
+
+        #If has not returned False by now, it has passed all the tests
         return True
 
     def check_game_over(self, result):
