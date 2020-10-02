@@ -214,6 +214,7 @@ class Game(object):
         #Check Lemmas
         illegal_lemmas=set()
         for word in unguessed_words:
+            #The primary lemma may be different for different parts of speech. Check all possible parts of speech:
             for pos in ['n',  # noun
                         'v',  # verb
                         'a',  # adjective

@@ -13,7 +13,7 @@ async def check_status_loop():
     """
     while True:
         loop.create_task(check_status())
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
 
 async def check_status():
     """
