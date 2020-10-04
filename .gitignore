@@ -4,3 +4,5 @@ playerlist.txt
 .idea/
 .ipynb_checkpoints/
 __pycache__/
+.vscode
+.env

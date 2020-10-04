@@ -1,7 +1,7 @@
 FROM python:3.8
 WORKDIR /app
-RUN pip install numpy==1.19.*
-RUN pip install nltk==3.5.*
-RUN pip install fastapi[all]==0.61.*
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
 COPY . .
 CMD python server_run.py
