@@ -204,6 +204,12 @@ class Game(object):
         """
         unguessed_words=self.gameboard.unguessed_words()
 
+        #check if clue word >1 word:
+        if " " in clue_word:
+            return False
+        if "-" in clue_word:
+            return False
+
         #Check partial words:
         for word in unguessed_words:
             if clue_word in word:
