@@ -13,6 +13,16 @@ A python template is provided for your bot containing two functions that you wil
 
 You will be provided with my_model.py (the python template for your model), a client_run.py file that takes care of all of the API interactions with the server and calls the generate_clue() and generate_guesses() functions at the appropriate times, and (for reference) all of the code that is used to run the games. In order to play games, all you will need to do is run “python client_run.py” from your command line while the server is open. It will take care of the rest!
 
+## Rules
+
+Unlike the official Codenames rules, we will not allow a multi-word clue even if it is a proper noun. All clues must be a single word without hyphens. Single word proper nouns ARE allowed.
+
+This competition is meant to test the abilities of your bots. Please do not include any human interactions in your code (e.g. your bot waiting for you to pick the best of the options it generates or you just generating the codeword manually).
+
+Competitors should not "team-up" to gain advantage. Any collaboration should be made in the Slack channel <link goes here once created> where anyone else can view and participate. 
+
+In order to be eligible for the leaderboard, your bot will need to have played a minimum of 100 games
+
 ## Competition Dates (2020)
 
 Practice server open October 14-21
@@ -27,14 +37,16 @@ Check-ins Wednesdays at 2PM PT:
 
 ## Competitor Instructions
 
-You will need the following files:
+You will need the following 6 files:
 
-##### Modify these files:
+##### Must modify these files:
 
 - myPlayerID-Key.txt - populate your player_ID and player_key here (these will be emailed to you upon confirmation of your sign-up)
 - my_model.py - this is where your code goes
 
-##### Do NOT modify these files:
+##### Modify these files at your own risk:
+
+(You shouldn't need to modify these files, but if you wish to do so, you may, though no support will be offered)
 
 - TWIML_codenames.py - defines the classes used for the competition. Imported by my_model.py
 - client_run.py - this automates all the interactions with the server, calling the two functions from my_model.py when needed
