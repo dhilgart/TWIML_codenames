@@ -26,6 +26,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 import os
+from router import user
 
 class generate_clues_body(BaseModel):
     """
@@ -47,6 +48,11 @@ clientlist=TWIML_codenames_API_Server.Clientlist()
 gamelist=TWIML_codenames_API_Server.Gamelist(clientlist)
 
 app = FastAPI() # called by uvicorn server_run:app
+
+app.include_router(
+    user.router,
+    prefix="/user",
+    tags=["user"])
 
 @app.get(root)
 def get_player_status(player_id: int, player_key: int):
@@ -220,4 +226,5 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
 if __name__ == "__main__":
    PORT = os.environ.get("PORT",8000)
    uvicorn.run("server_run:app", host="0.0.0.0", port=PORT, log_level="debug"
+                ,reload=True
                 )
