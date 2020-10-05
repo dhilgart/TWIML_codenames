@@ -1,6 +1,5 @@
 from pydantic import BaseSettings
 import pymongo 
-import mongoengine 
 
 class Settings(BaseSettings):
     db_connection: str 
