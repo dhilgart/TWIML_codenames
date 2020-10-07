@@ -555,9 +555,15 @@ class Player(object):
     def __init__(self, player_id, Elo = {'Spymaster': 1500., 'Operative': 1500.},
                  record = {'Spymaster': {'W': 0, 'L': 0}, 'Operative': {'W': 0, 'L': 0}}):
         """
-        @param player_id (int): the unique id for the current player
-        @param files_location (str): the path to the folder where this player's files are stored
-        @param model_filename (str): the name of the file for the model to be used for this player
+        By default, a new player object is created with Elo 1500 for both roles and W-L record of 0-0 for both roles.
+        The option to provide the Elo and record are included so that the server can recreate a player object from info
+            stored on disk.
+
+        @param player_id [int] : the unique id for the current player
+        @param Elo [dict](optional) : the dict storing the player's Elo ratings for both roles. Used when recreating a
+            player object from disk
+        @param record [dict](optional) : the dict storing the player's W-L records for both roles. Used when recreating
+            a player object from disk
         """
         self.player_id = player_id
         self.Elo = Elo
