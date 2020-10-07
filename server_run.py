@@ -106,7 +106,7 @@ def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
         # any time a client interacts with the server, record the touch (updating the last_active time for this client)
         clientlist.client_touch(player_id)
         if gamelist.is_active_game(game_id):
-            if TWIML_codenames.is_players_turn(gamelist[game_id], player_id):
+            if gamelist[game_id].is_players_turn(player_id):
                 team_num, gameboard = gamelist[game_id].solicit_clue_inputs()
                 to_return = {'game_id' : game_id,
                              'team_num' : team_num,
@@ -140,7 +140,7 @@ def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, da
         # any time a client interacts with the server, record the touch (updating the last_active time for this client)
         clientlist.client_touch(player_id)
         if gamelist.is_active_game(game_id):
-            if TWIML_codenames.is_players_turn(gamelist[game_id], player_id):
+            if gamelist[game_id].is_players_turn(player_id):
                 clue_word = data.clue_word
                 clue_count = data.clue_count
                 gamelist[game_id].clue_given(clue_word, clue_count)
@@ -174,7 +174,7 @@ def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
         # any time a client interacts with the server, record the touch (updating the last_active time for this client)
         clientlist.client_touch(player_id)
         if gamelist.is_active_game(game_id):
-            if TWIML_codenames.is_players_turn(gamelist[game_id], player_id):
+            if gamelist[game_id].is_players_turn(player_id):
                 team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers = \
                     gamelist[game_id].solicit_guesses_inputs()
                 to_return = {'game_id' : game_id,
@@ -212,7 +212,7 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
         # any time a client interacts with the server, record the touch (updating the last_active time for this client)
         clientlist.client_touch(player_id)
         if gamelist.is_active_game(game_id):
-            if TWIML_codenames.is_players_turn(gamelist[game_id], player_id):
+            if gamelist[game_id].is_players_turn(player_id):
                 guesses = data.guesses
                 gamelist[game_id].guesses_given(guesses)
             to_return = clientlist[player_id].return_status(gamelist)

@@ -1,6 +1,13 @@
 """
-client_run.py: run this file to participate in the TWIMLfest 2020 codenames competition
+client_run.py: run this file (using "python client_run.py") to participate in the TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
+
+This file starts an async event loop and then adds a new task each X seconds to ping the server and get the current
+    status for the player. If the server is waiting for this player, it will call
+    TWIML_codenames_API_Client.query_and_respond() which in turn:
+        asks the server for the necessary inputs
+        calls the appropriate function from my_model.py
+        sends the outputs from that function back to the server
 """
 
 import TWIML_codenames_API_Client
@@ -17,13 +24,22 @@ async def check_status_loop():
 
 async def check_status():
     """
-    Asks the server what the current status is for this player and if the server is waiting for a query from the player,
-    adds a task to the loop to query and respond
+    Asks the server what the current status is for this player. If the server is waiting for a query from the player,
+        adds a task to the loop to query and respond which then:
+            asks the server for the necessary inputs
+            calls the appropriate function from my_model.py
+            sends the outputs from that function back to the server
     """
+    # request the status from the server:
     status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
+
+    # Does the player have any active games?
     if len(status['active games']) > 0:
+        # For each active game...
         for game_data in status['active games'].values():
-            if game_data['waiting on']['player_id'] == player_id and game_data['waiting on']['waiting for'] == 'query':
+            # ...check if the server is waiting on this player:
+            if game_data['waiting on']['player_id'] == player_id:
+                # if so, call query_and_respond()
                 loop.create_task(TWIML_codenames_API_Client.query_and_respond(player_id=player_id,
                                                                               player_key=player_key,
                                                                               game_id=game_data['game_id'],
@@ -31,13 +47,16 @@ async def check_status():
                                                                               ))
 
 if __name__ == "__main__":
+    # Load player_id and player_key from the myPlayerID-Key.txt file
     PlayerID_Key = json.load(open('myPlayerID-Key.txt', 'r'))
     player_id = int(PlayerID_Key['Player_ID'])
     player_key = int(PlayerID_Key['Player_Key'])
 
+    # Create the async event loop
     loop = asyncio.get_event_loop()
     task = loop.create_task(check_status_loop())
 
+    # run the loop
     try:
         loop.run_until_complete(task)
     except asyncio.CancelledError:

@@ -7,12 +7,12 @@ Contains 3 class definitions:
     Client : Stores info about an individual client
     Gamelist : Keeps track of which games are currently in progress and stores info for those that have completed
 
-Contains 4 helper functions:
+Contains 4 functions:
     validate(player_id, player_key) [bool] : returns True if the player_key is the correct one for the player_id
     send_as_bytes(var_to_send) [fastapi.Response] : converts any object (including a dict filled with various objects)
         into bytes to be sent via the API
     write_playerlist() : writes the playerlist to disk
-    read_playerlist() list[TWIML_codenames.Player objects]: reads the playerlist from disk
+    read_playerlist() list[TWIML_codenames.Player objects] : reads the playerlist from disk
 
 Contains the following global variables (set at the bottom of this file):
     client_active_timeout [timedelta] : how often a client needs to interact with the server to remain active
@@ -31,7 +31,6 @@ Contains the following global variables (set at the bottom of this file):
     - Eliminate playerlist by incorporating into clientlist?
     - Save/load gamelist to/from disk?
 """
-
 
 """
 ------------------------------------------------------------------------------------------------------------------------
@@ -208,7 +207,8 @@ class Client(object):
             TWIML_codenames.Game objects can be accessed
 
         @returns [dict] : a nested dictionary of form {'active games' : game_statuses, 'ended games' : list[game_ids]}
-            game_statuses is itself a dictionary of form:
+            game_statuses is itself a nested dictionary of form {game_id : game_status} with game_status a dictionary of
+            form:
                 {'game_id'          : game_id,
                  'game_start_time'  : <datetime>,
                  'role_info'        : <see role_info as defined in .active_games>,
@@ -434,7 +434,7 @@ class Gamelist(object):
 
 """
 ------------------------------------------------------------------------------------------------------------------------
-                                                    Helper Functions
+                                                       Functions
 ------------------------------------------------------------------------------------------------------------------------
 """
 def validate(player_id, player_key):
