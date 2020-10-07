@@ -360,32 +360,33 @@ class Game(object):
 
         @returns legal_clue(bool): True if the clue is legal, False if illegal
         """
-        unguessed_words=self.gameboard.unguessed_words()
+        unguessed_words = self.gameboard.unguessed_words()
 
-        #check if clue word >1 word:
+        # check if clue word >1 word:
         if " " in clue_word:
             return False
         if "-" in clue_word:
             return False
 
-        #Check partial words:
+        # Check partial words:
         for word in unguessed_words:
             if clue_word in word:
                 return False
             if word in clue_word:
                 return False
 
-        #Check Lemmas
-        illegal_lemmas=set()
+        # Check Lemmas
+        lemmatizer = WordNetLemmatizer()
+        illegal_lemmas = set()
         for word in unguessed_words:
-            #The primary lemma may be different for different parts of speech. Check all possible parts of speech:
+            # The primary lemma may be different for different parts of speech. Check all possible parts of speech:
             for pos in ['n',  # noun
                         'v',  # verb
                         'a',  # adjective
                         's',  # adjective satellite
-                        'r'   # adverb
+                        'r'  # adverb
                         ]:
-                illegal_lemmas.add(WordNetLemmatizer.lemmatize(word, pos=pos))
+                illegal_lemmas.add(lemmatizer.lemmatize(word, pos=pos))
 
         for pos in ['n',  # noun
                     'v',  # verb
@@ -393,10 +394,10 @@ class Game(object):
                     's',  # adjective satellite
                     'r'  # adverb
                     ]:
-            if WordNetLemmatizer.lemmatize(clue_word, pos=pos) in illegal_lemmas:
+            if lemmatizer.lemmatize(clue_word, pos=pos) in illegal_lemmas:
                 return False
 
-        #If has not returned False by now, it has passed all the tests
+        # If has not returned False by now, it has passed all the tests
         return True
 
     def check_game_over(self, result):
