@@ -342,12 +342,14 @@ class Game(object):
             num_guesses = min(self.curr_clue_count + 1, len(guesses))
 
         for i in range(num_guesses):
-            result = self.gameboard.tap(guesses[i])
-            self.check_game_over(result)
-            if self.game_completed:
-                break # if the game is over, no need to continue guessing
-            if result != self.curr_team:
-                break  # if a guess is not correct, stop guessing by breaking out of this for loop
+            # check if the guess word exists in the unguessed_words list. If not, move on to the next word in the list
+            if guesses[i] in self.gameboard.unguessed_words():
+                result = self.gameboard.tap(guesses[i])
+                self.check_game_over(result)
+                if self.game_completed:
+                    break # if the game is over, no need to continue guessing
+                if result != self.curr_team:
+                    break  # if a guess is not correct, stop guessing by breaking out of this for loop
         self.switch_teams()
         self.waiting_on = 'spymaster'
         self.waiting_query_since = datetime.now()
