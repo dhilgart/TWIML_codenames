@@ -8,10 +8,16 @@ Contains 4 class definitions:
     Gamelist : Keeps track of which games are currently in progress and stores info for those that have completed
     MongoLogger : Interfaces with MongoDB to write the log for an individual game
 
-Contains 4 functions:
+Contains 8 functions:
     validate(player_id, player_key) [bool] : returns True if the player_key is the correct one for the player_id
     send_as_bytes(var_to_send) [fastapi.Response] : converts any object (including a dict filled with various objects)
         into bytes to be sent via the API
+    list_player_games(player_to_pull, db) [list[int]] : returns a list of game_ids for all games this player is/was
+        involved in
+    list_completed_games(db) [list[int]] : returns a list of game_ids for all completed games
+    pull_game_log(game_id, player_id, db) [dict] : returns the game log for an individual game
+    scrub_game_log(game_dict, player_id) [dict] : removes info from the game log that would not be known to the
+        player_id who is pulling the log
     write_playerlist() : writes the playerlist to disk
     read_playerlist() list[TWIML_codenames.Player objects] : reads the playerlist from disk
 
@@ -46,7 +52,6 @@ import json
 import os.path
 import random
 from copy import deepcopy
-
 """
 ------------------------------------------------------------------------------------------------------------------------
                                                         Classes
@@ -526,6 +531,104 @@ def send_as_bytes(var_to_send):
     """
     return Response(content=pickle.dumps(var_to_send))
 
+def list_completed_games(db):
+    """
+    Returns a list of game_ids for all completed games
+
+    @param db [pymongo db] : a connection to the pymongo db
+
+    @returns completed_game_ids [list[int]] : a list of the unique 6-digit identifiers for each completed game in the db
+    """
+    results = db.games.find(filter={"in_progress": False}, projection=['game_id'])
+    completed_game_ids=[]
+    for game_dict in results:
+        completed_game_ids.append(game_dict['game_id'])
+    return completed_game_ids
+
+def list_player_games(player_to_pull, db):
+    """
+    Returns a list of game_ids for all games this player is/was involved in
+
+    @param player_to_pull (int) : the ID of the player being queried
+    @param db [pymongo db] : a connection to the pymongo db
+
+    @returns game_ids [list[int]] : a list of the unique 6-digit ids for each game this player is/was involved in
+    """
+    results = db.games.find(projection=['game_id', 'teams'])
+    game_ids=[]
+    for game_dict in results:
+        game_players = [player for team in game_dict['teams'].values() for player in team]
+        if player_to_pull in game_players:
+            game_ids.append(game_dict['game_id'])
+    return game_ids
+
+def list_completed_games(db):
+    """
+    Returns a list of game_ids for all completed games
+
+    @param db [pymongo db] : a connection to the pymongo db
+
+    @returns completed_game_ids [list[int]] : a list of the unique 6-digit identifiers for each completed game in the db
+    """
+    results = db.games.find(filter={"in_progress": False}, projection=['game_id'])
+    completed_game_ids=[]
+    for game_dict in results:
+        completed_game_ids.append(game_dict['game_id'])
+    return completed_game_ids
+
+def pull_game_log(game_id, player_id, db):
+    """
+    Returns the game log for an individual game
+
+    @param game_id [int] : the unique 6-digit identifier for this game
+    @param player_id [int] : the player_id of the player pulling the log
+    @param db [pymongo db] : a connection to the pymongo db
+
+    @returns game_dict [dict] : the scrubbed game_dict
+    """
+    game_dict=db.games.find_one(filter={"game_id": game_id})
+    if game_dict is None:
+        return {'Game log not found':game_id}
+    else:
+        return scrub_game_log(game_dict, player_id)
+
+def scrub_game_log(game_dict, player_id):
+    """
+    Removes info from the game log that would not be known to the player_id who is pulling the log
+
+    @param game_dict [dict] : the dictionary of the document that was pulled from the mongoDB
+    @param player_id [int] : the player_id of the player pulling the log
+
+    @returns temp_dict [dict] : the scrubbed game_dict
+    """
+
+    temp_dict = deepcopy(game_dict)
+    del temp_dict['_id']
+    spymasters = [temp_dict['teams']['team 1'][0], temp_dict['teams']['team 2'][0]]
+    operatives = [temp_dict['teams']['team 1'][1], temp_dict['teams']['team 2'][1]]
+
+    # While game is in progress, only let the spymasters see the boardkey
+    if temp_dict['in_progress'] and player_id not in spymasters:
+        del temp_dict['boardkey'] # boardkey is only known by spymasters
+
+    #remove details about illegal clues and illegal guesses except for the players who gave them
+    for event in temp_dict['events']:
+        # remove info about illegal clues, except for the giver of the illegal clue
+        if event['event'] == 'clue_given': # only interested in clue_given events
+            if event['legal_clue'] != 'Yes': # only interested in illegal clues
+                # only scrub the illegal clue if the player_id doesn't match the spymaster for this event
+                if player_id != spymasters[event['team_num']-1]:
+                    del event['clue_word']
+                    del event['clue_count']
+                    event['legal_clue'] = 'Illegal clue given' # overwrite the explanation of why the clue was illegal
+
+        # remove info about illegal guesses, except for the giver of the illegal guess
+        if event['event'] == 'guess skipped: guess not in unguessed_words':
+            # only scrub the illegal guess if the player_id doesn't match the operative for this event
+            if player_id != operatives[event['team_num'] - 1]:
+                del event['word_guessed']
+
+    return temp_dict
 
 def write_playerlist():
     """
