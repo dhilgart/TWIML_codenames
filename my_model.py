@@ -41,7 +41,7 @@ def generate_clue(game_id, team_num, gameboard):
                 To give a clue for infinity, provide an int of 10.
     """
     ### YOUR CODE HERE
-    wordlist = pickle.load( open("wordlist.p", "rb" ) ) #load the wordlist from a pickled file in my directory
+    wordlist = ['hello', 'world']
     clue_word = np.random.choice(wordlist) #pick a clue word at random from the wordlist
     clue_count = np.random.randint(3) + 1 #give a random clue_count of 1, 2, or 3
     ### END YOUR CODE

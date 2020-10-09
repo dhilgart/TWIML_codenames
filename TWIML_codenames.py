@@ -2,10 +2,12 @@
 TWIML_codenames.py: Module to simulate games for TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 
-Contains 3 class definitions:
+Contains 4 class definitions:
     Gameboard : Contains the 5x5 grid of words for the current game, the key for which words belong to which team, and a
         boardmarkers array that tracks which words have been guessed so far
     Game : Contains the mechanics of the game
+    LocalLogger : The default logger if no logger is provided when a game is instantiated. Records a log of all the
+        actions taken in a game
     Player : Contains all the info needed to track the player's performance
 """
 
@@ -13,7 +15,7 @@ Contains 3 class definitions:
 ------------------------------------------------------------------------------------------------------------------------
                                                          To Do
 ------------------------------------------------------------------------------------------------------------------------
-    - Add check to make sure guessed word exists in the unguessed_words list.
+    - 
 """
 
 """
@@ -110,7 +112,7 @@ class Gameboard(object):
         x_loc, y_loc = self.word_loc(word)
         team = self.boardkey[x_loc,y_loc]
         self.boardmarkers[x_loc,y_loc]=team
-        return team
+        return int(team) # convert from numpy.int64 to regular python int so it can be stored in the mongoDB
 
     def word_loc(self, word):
         """
@@ -153,7 +155,8 @@ class Game(object):
 
     Instance variables:
         .gameboard [TWIML_codenames.Gameboard] : the gameboard object for this game
-        .teams [list[list[TWIML_codenames.Player]]] : stores the list of Player objects for each of the players
+        .teams [list[list[TWIML_codenames.Player]]] : stores the list of Player objects for each of the players in each
+            team
         .curr_team [int] : tracks which team's turn it is
         .waiting_on [str] : is the game waiting on the spymaster or the operative?
         .waiting_query_since [datetime] : the game has been waiting for the current player to query the server since
@@ -196,6 +199,8 @@ class Game(object):
                                                      'Elo after update'  : {'Spymaster': [float],
                                                                             'Operative': [float]}}
         .game_start_time [datetime] : when the game started
+        .logger [TWIML_codenames_API_Server.MongoLogger or LocalLogger] : the object that records the log and either
+            stores it in local memory (LocalLogger) or in the mongoDB (MongoLogger)
 
     Properties:
         .spymasters [list[list[TWIML_codenames.Players]]] : a list of the player objects for just the spymasters
@@ -212,7 +217,8 @@ class Game(object):
             command to root+"{game_id}/generate_guesses/"
         .guesses_given(guesses) : Takes the gueses from the operative and updates the game status accordingly. Called
             when the operative sends a post command to root+"{game_id}/generate_guesses/"
-        .legal_clue(clue_word) [bool] : Checks if the clue provided by the spymaster is a legal clue
+        .legal_clue(clue_word) [bool, str] : Checks if the clue provided by the spymaster is a legal clue and if not,
+            provides an explanation why not
         .check_game_over(result) :  Checks to see if one of the conditions has been met to end the game. If so, updates
             game_completed to True and populates game_result dict
         .switch_teams() : Switches the active team
@@ -228,8 +234,10 @@ class Game(object):
         .is_players_turn(player_id) [bool] : Checks if it is the turn of player_id
         .check_timed_out(max_duration) [bool] : Checks if the player being waited on has timed out. If so, updates
             game_result dict accordingly.
+        .log_end_of_game : Adds elements from self.game_result to the game log. Called when either the game completes or
+            times out.
     """
-    def __init__(self, gameboard, team1, team2):
+    def __init__(self, gameboard, team1, team2, logger=None):
         """
         Instantiate a new game
 
@@ -239,27 +247,34 @@ class Game(object):
             team1[0] is the spymaster and team1[1] is the operative (guesser)
         @param team2 (list[Player]): a list of Player objects containing the necessary info for each player on team2.
             team2[0] is the spymaster and team2[1] is the operative (guesser)
+        @param gamelog [TWIML_codenames.GameLog] : The gamelog for this game
         """
         self.gameboard = gameboard
         self.teams = [team1, team2]
         self.curr_team = 1
         self.waiting_on = 'spymaster'
-        self.waiting_query_since = datetime.now()
+        self.waiting_query_since = datetime.utcnow()
         self.waiting_inputs_since = datetime(2020,1,1)
         self.curr_clue_word = ''
         self.curr_clue_count = -1
         self.game_completed = False #Used to track whether the end of the game has been reached yet
         self.game_timed_out = False
         self.game_result = {}
-        self.game_start_time = datetime.now()
+        self.game_start_time = datetime.utcnow()
+
+        if logger is None:
+            self.logger = LocalLogger()
+        else:
+            self.logger = logger
+        self.logger.record_config(gameboard, self.teams)
 
     @property
     def spymasters(self):
-        return [team1[0], team2[0]]
+        return [self.teams[0][0], self.teams[1][0]]
 
     @property
     def operatives(self):
-        return [team1[1], team2[1]]
+        return [self.teams[0][1], self.teams[1][1]]
 
     @property
     def not_curr_team(self):
@@ -277,7 +292,7 @@ class Game(object):
         @returns team_num [int] : the player's team number <1 or 2>
         @returns gameboard [TWIML_codenames.Gameboard] : the current gameboard
         """
-        self.waiting_inputs_since = datetime.now()
+        self.waiting_inputs_since = datetime.utcnow()
         
         return self.curr_team, self.gameboard
 
@@ -290,15 +305,27 @@ class Game(object):
         @param clue_word [str] : the clue word
         @param clue_count [int] : the clue count
         """
-        if self.legal_clue(clue_word):
+        bLegal, explanation = self.legal_clue(clue_word)
+        self.logger.add_event({'event': 'clue_given',
+                               'timestamp': datetime.utcnow(),
+                               'team_num': self.curr_team,
+                               'clue_word': clue_word,
+                               'clue_count': clue_count,
+                               'legal_clue': explanation
+                               })
+        if bLegal:
             self.curr_clue_word = clue_word
             self.curr_clue_count = clue_count
             self.waiting_on = 'operative'
-            self.waiting_query_since = datetime.now()
+            self.waiting_query_since = datetime.utcnow()
         else: # if the clue word was illegal, end the current turn
+            self.logger.add_event({'event': 'end guessing',
+                                   'timestamp': datetime.utcnow(),
+                                   'reason': 'illegal clue given; no guessing allowed'
+                                   })
             self.switch_teams()
             self.waiting_on = 'spymaster'
-            self.waiting_query_since = datetime.now()
+            self.waiting_query_since = datetime.utcnow()
 
     def solicit_guesses_inputs(self):
         """
@@ -323,7 +350,7 @@ class Game(object):
         boardwords = self.gameboard.boardwords
         boardmarkers = self.gameboard.boardmarkers
 
-        self.waiting_inputs_since = datetime.now()
+        self.waiting_inputs_since = datetime.utcnow()
         
         return team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers
 
@@ -335,6 +362,12 @@ class Game(object):
 
         @param guesses list[str] : list of the guesses the player wants to make
         """
+        if len(guesses) == 0:
+            self.logger.add_event({'event': 'end guessing',
+                                   'timestamp': datetime.utcnow(),
+                                   'reason': 'Zero guesses provided'
+                                   })
+
         # If the spymaster specified a clue for 0 or infinity (infinity is represented by 10):
         if (self.curr_clue_count == 0) | (self.curr_clue_count == 10):
             num_guesses = len(guesses)
@@ -345,14 +378,40 @@ class Game(object):
             # check if the guess word exists in the unguessed_words list. If not, move on to the next word in the list
             if guesses[i] in self.gameboard.unguessed_words():
                 result = self.gameboard.tap(guesses[i])
+                self.logger.add_event({'event': 'guess made',
+                                       'timestamp': datetime.utcnow(),
+                                       'team_num': self.curr_team,
+                                       'word_guessed': guesses[i],
+                                       'result': result
+                                       })
                 self.check_game_over(result)
                 if self.game_completed:
                     break # if the game is over, no need to continue guessing
                 if result != self.curr_team:
-                    break  # if a guess is not correct, stop guessing by breaking out of this for loop
+                    self.logger.add_event({'event': 'end guessing',
+                                           'timestamp': datetime.utcnow(),
+                                           'reason': 'incorrect guess made'
+                                           })
+                    break # if a guess is not correct, stop guessing by breaking out of this for loop
+            else:
+                self.logger.add_event({'event': 'guess skipped: guess not in unguessed_words',
+                                       'timestamp': datetime.utcnow(),
+                                       'team_num': self.curr_team,
+                                       'word_guessed': guesses[i]
+                                       })
+            if i == len(guesses)-1:
+                self.logger.add_event({'event': 'end guessing',
+                                       'timestamp': datetime.utcnow(),
+                                       'reason': 'no more guesses provided'
+                                       })
+            elif i == self.curr_clue_count:
+                self.logger.add_event({'event': 'end guessing',
+                                       'timestamp': datetime.utcnow(),
+                                       'reason': 'num guesses provided exceeded clue_count+1'
+                                       })
         self.switch_teams()
         self.waiting_on = 'spymaster'
-        self.waiting_query_since = datetime.now()
+        self.waiting_query_since = datetime.utcnow()
 
     def legal_clue(self, clue_word):
         """
@@ -360,22 +419,23 @@ class Game(object):
 
         @param clue_word (str): the clue word provided by the spymaster
 
-        @returns legal_clue(bool): True if the clue is legal, False if illegal
+        @returns bLegal [bool] : True if the clue is legal, False if illegal
+        @returns explanation [str] : Why the clue was illegal ('Yes' if it was legal)
         """
         unguessed_words = self.gameboard.unguessed_words()
 
         # check if clue word >1 word:
         if " " in clue_word:
-            return False
+            return False, 'Illegal clue: contained space(s)'
         if "-" in clue_word:
-            return False
+            return False, 'Illegal clue: contained hyphen(s)'
 
         # Check partial words:
         for word in unguessed_words:
             if clue_word in word:
-                return False
+                return False, f'Illegal clue: clue_word in unguessed word {word}'
             if word in clue_word:
-                return False
+                return False, f'Illegal clue: unguessed word {word} in clue_word'
 
         # Check Lemmas
         lemmatizer = WordNetLemmatizer()
@@ -396,11 +456,23 @@ class Game(object):
                     's',  # adjective satellite
                     'r'  # adverb
                     ]:
-            if lemmatizer.lemmatize(clue_word, pos=pos) in illegal_lemmas:
-                return False
+            lemma=lemmatizer.lemmatize(clue_word, pos=pos)
+            if lemma in illegal_lemmas:
+                # This is an illegal clue based on lemmas
+                # Figure out which boardword it overlaps with so explanation can be given:
+                for boardword in unguessed_words:
+                    for pos in ['n',  # noun
+                                'v',  # verb
+                                'a',  # adjective
+                                's',  # adjective satellite
+                                'r'  # adverb
+                                ]:
+                        if lemmatizer.lemmatize(boardword, pos=pos) == lemma:
+                            return False, f"Illegal clue: clue_word lemma '{lemma}' (POS={pos}) overlaps a lemma of " \
+                                          f"boardword '{boardword}'"
 
         # If has not returned False by now, it has passed all the tests
-        return True
+        return True, 'Yes'
 
     def check_game_over(self, result):
         """
@@ -410,14 +482,26 @@ class Game(object):
         @param result (int): the team of the most recently tapped word. Used to check if the Assassin has been tapped
         """
         if result == -1:  # If the operative guessed the assassin word
+            self.logger.add_event({'event': 'game over',
+                                   'timestamp': datetime.utcnow(),
+                                   'reason': 'guessed assassin word'
+                                   })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}
             self.game_result['losing team'] = {'num' : self.curr_team}
         elif self.gameboard.remaining(self.curr_team) == 0: #if the current team has no words left to guess
+            self.logger.add_event({'event': 'game over',
+                                   'timestamp': datetime.utcnow(),
+                                   'reason': f'all team {self.curr_team} words guessed'
+                                   })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.curr_team}
             self.game_result['losing team'] = {'num' : self.not_curr_team}
         elif self.gameboard.remaining(self.not_curr_team) == 0: #if the other (not-current) team has no words left to guess
+            self.logger.add_event({'event': 'game over',
+                                   'timestamp': datetime.utcnow(),
+                                   'reason': f'all team {self.not_curr_team} words guessed'
+                                   })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}
             self.game_result['losing team'] = {'num' : self.curr_team}
@@ -431,7 +515,7 @@ class Game(object):
                                     })
                 team_dict['players'] = players
             self.game_result['start time'] = self.game_start_time
-            self.game_result['end time'] = datetime.now()
+            self.game_result['end time'] = datetime.utcnow()
             self.game_result['final gameboard'] = self.gameboard
 
             self.update_ratings()
@@ -444,6 +528,7 @@ class Game(object):
 
                 for j, player in enumerate(team):
                     self.game_result[team_key]['players'][j]['Elo after update'] = deepcopy(player.Elo)
+            self.log_end_of_game()
 
     def switch_teams(self):
         """
@@ -489,10 +574,10 @@ class Game(object):
             wait_player = self.operatives[self.curr_team - 1]
         if self.waiting_query_since > self.waiting_inputs_since:  # If waiting_query_since reset more recently than waiting_inputs_since
             waiting_for = 'query'
-            wait_duration = datetime.now() - self.waiting_query_since
+            wait_duration = datetime.utcnow() - self.waiting_query_since
         else:
             waiting_for = 'input'
-            wait_duration = datetime.now() - self.waiting_inputs_since
+            wait_duration = datetime.utcnow() - self.waiting_inputs_since
         return wait_team, wait_role, wait_player.player_id, waiting_for, wait_duration
 
     def is_players_turn(self, player_id):
@@ -504,9 +589,9 @@ class Game(object):
             supplied
         """
         if self.waiting_on == 'spymaster':
-            waiting_on_player_id = self.spymasters[game.curr_team - 1].player_id
+            waiting_on_player_id = self.spymasters[self.curr_team - 1].player_id
         else:
-            waiting_on_player_id = self.operatives[game.curr_team - 1].player_id
+            waiting_on_player_id = self.operatives[self.curr_team - 1].player_id
         return player_id == waiting_on_player_id
 
     def check_timed_out(self, max_duration):
@@ -530,10 +615,74 @@ class Game(object):
                                            2 : [{'player_id' : player.player_id} for player in self.teams[1]]
                                            },
                                 'start time' : self.game_start_time,
-                                'end time' : datetime.now(),
+                                'end time' : datetime.utcnow(),
                                 'final gameboard' : self.gameboard
                                 }
+            self.log_end_of_game()
         return self.game_timed_out
+
+    def log_end_of_game(self):
+        """
+        Adds elements from self.game_result to the game log. Called when either the game completes or times out.
+        """
+        self.logger.set_field('in_progress', False)
+        for key, val in self.game_result.items():
+            if key == 'final gameboard':  # cannot store gameboard object in mongoDB
+                # instead, just store the boardmarkers array, converting it to mongo-storable types first
+                self.logger.set_field('boardmarkers',[[float(x) for x in row] for row in self.gameboard.boardmarkers])
+            else:
+                self.logger.set_field(key, val)
+
+class LocalLogger(object):
+    """
+    The default logger if no logger is provided when a game is instantiated.
+    Records a log of all the actions taken in a game.
+    When games are run on the server, this logger will not be used. A logger that links to the mongoDB will be used
+        instead. See class MongoLogger in TWIML_codenames_API_Server
+
+    Instance variables:
+        .game_log [dict] : the game log. Static information for the game are stored as key,val pairs in the game_log
+            dict. Events are stored in a list embedded within the game_log dict.
+
+    Functions:
+        .record_config(gameboard, teams) : called when a TWIML_codenames.game object is initialized. Populates starting
+            info about the game to the game_log
+        .set_field(field_name, val) : sets a field in the top level of the game_log
+        .add_event(event_dict) : adds the event to the end of the list of events
+    """
+    def __init__(self):
+        self.game_log = {'in_progress':True, 'events':[]}
+
+    def record_config(self, gameboard, teams):
+        """
+        Called when a TWIML_codenames.game object is initialized. Populates starting
+            info about the game to the game_log
+
+        @param gameboard [TWIML_codenames.Gameboard] : the gameboard for this game
+        @param teams [list[list[TWIML_codenames.Player]] : the list of Player objects for each of the players in each
+            team
+        """
+        self.set_field('boardwords', [[str(x) for x in row] for row in gameboard.boardwords])
+        self.set_field('boardkey', [[int(x) for x in row] for row in gameboard.boardkey])
+        self.set_field('teams', {'team 1':[player.player_id for player in teams[0]],
+                                 'team 2':[player.player_id for player in teams[1]]})
+
+    def set_field(self, field_name, val):
+        """
+        Sets a field in the top level of the game_log
+
+        @param field_name [str] : the key name of the field to be set
+        @param val [any] : the value to be set
+        """
+        self.game_log[field_name] = val
+
+    def add_event(self, event_dict):
+        """
+        Adds the event to the end of the list of events
+
+        @param event_dict [dict] : the dictionary capturing the info associated with the event
+        """
+        self.game_log['events'].append(event_dict)
 
 class Player(object):
     """

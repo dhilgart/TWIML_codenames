@@ -27,6 +27,7 @@ from pydantic import BaseModel
 import uvicorn
 import os
 from router import user
+import config
 
 class generate_clues_body(BaseModel):
     """
@@ -45,7 +46,7 @@ root="/"
 
 #When starting the server, create the clientlist and gamelist objects for keeping track of the clients and the games
 clientlist=TWIML_codenames_API_Server.Clientlist()
-gamelist=TWIML_codenames_API_Server.Gamelist(clientlist)
+gamelist=TWIML_codenames_API_Server.Gamelist(clientlist,db=config.get_connection())
 
 app = FastAPI() # called by uvicorn server_run:app
 

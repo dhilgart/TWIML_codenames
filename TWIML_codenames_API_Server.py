@@ -2,10 +2,11 @@
 TWIML_codenames_API_Server.py: containing functions called by the server for TWIMLfest 2020 codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 
-Contains 3 class definitions:
+Contains 4 class definitions:
     Clientlist : Keeps track of which clients are currently actively interacting with the server
     Client : Stores info about an individual client
     Gamelist : Keeps track of which games are currently in progress and stores info for those that have completed
+    MongoLogger : Interfaces with MongoDB to write the log for an individual game
 
 Contains 4 functions:
     validate(player_id, player_key) [bool] : returns True if the player_key is the correct one for the player_id
@@ -312,6 +313,7 @@ class Gamelist(object):
 
     Instance variables:
         .clientlist [Clientlist] : a pointer to the clientlist object for this server session
+        .db [pymongo database] : a pointer to the pymongo database connection
         .active_games [dict] : a nested dictionary for each active game of form
             {game_id : {'Game object' : <TWIML_codenames.Game>,
                         'clients' : list[player_id for each client]}
@@ -329,17 +331,21 @@ class Gamelist(object):
             in the Gamelist as well as in each Client
         .is_active_game(game_id) [bool] : True if the game is active, False if it has ended
     """
-    def __init__(self, clientlist):
+    def __init__(self, clientlist, db):
         """
         Instantiate a new Gamelist
 
         @param clientlist [Clientlist] : a pointer to the clientlist object for this server session
+        @param db [pymongo database] : a pointer to the pymongo database connection
         """
         self.clientlist = clientlist
+        self.db = db
         self.active_games = {}
         self.ended_games = {}
-        # If implementing saving game histories to disk: update this to pull a number from the disk
-        self.next_game_id = 100001
+        self.next_game_id = \
+            max([x['game_id'] for x in db.games.find(projection=['game_id'])] # Get a list of all game_ids in the db
+                +[100000] # If there aren't any game_ids yet, start at 100000
+                )+1 # The next game needs to be one higher than the max
 
     def __getitem__(self, key):
         """
@@ -376,7 +382,8 @@ class Gamelist(object):
             new_game_id = self.next_game_id
             self.next_game_id += 1
             gameboard = TWIML_codenames.Gameboard(wordlist)
-            self.active_games[new_game_id] = {'Game object' : TWIML_codenames.Game(gameboard, team1, team2),
+            logger=MongoLogger(new_game_id, self.db)
+            self.active_games[new_game_id] = {'Game object' : TWIML_codenames.Game(gameboard, team1, team2, logger),
                                               'clients' : [client.player_id for client in game_clients]
                                               }
             for client in game_clients:
@@ -432,6 +439,67 @@ class Gamelist(object):
         """
         return (game_id in self.active_games.keys())
 
+class MongoLogger(object):
+    """
+    Interfaces with MongoDB to write the log for an individual game
+
+    Instance variables:
+        .game_id [int] : the unique 6-digit identifier for this game
+        .db [pymongo database] : a pointer to the pymongo database connection
+        .db_id [pymongo ObjectID] : the unique ObjectID for this game's document in the database
+
+    Functions:
+        .record_config(gameboard, teams) : called when a TWIML_codenames.game object is initialized. Populates starting
+            info about the game to the game_log
+        .set_field(field_name, val) : sets a field in the top level of the game_log
+        .add_event(event_dict) : adds the event to the end of the list of events
+    """
+    def __init__(self, game_id, db):
+        """
+        Instantiate a new gamelog
+
+        @param game_id [int] : the unique id for this game
+        @param db [pymongo db] : a connection to the pymongo db
+        """
+        self.game_id = game_id
+        self.db = db
+
+        # Create new document in db:
+        game_doc = {'game_id':game_id,
+                    'in_progress':True,
+                    'events':[]
+                    }
+        self.db_id = db.games.insert_one(game_doc).inserted_id
+
+    def record_config(self, gameboard, teams):
+        """
+        called when a TWIML_codenames.game object is initialized. Populates starting info about the game to the game_log
+
+        @param gameboard [TWIML_codenames.Gameboard] : the gameboard for this game
+        @param teams [list[list[TWIML_codenames.Player]] : the list of Player objects for each of the players in each
+            team
+        """
+        self.set_field('boardwords', [[str(x) for x in row] for row in gameboard.boardwords])
+        self.set_field('boardkey', [[int(x) for x in row] for row in gameboard.boardkey])
+        self.set_field('teams', {'team 1':[player.player_id for player in teams[0]],
+                                 'team 2':[player.player_id for player in teams[1]]})
+
+    def set_field(self, field_name, val):
+        """
+        Sets a field in the top level of the game_log
+
+        @param field_name [str] : the key name of the field to be set
+        @param val [any] : the value to be set
+        """
+        self.db.games.update_one(filter={"_id": self.db_id}, update={"$set": {field_name: val}})
+
+    def add_event(self, event_dict):
+        """
+        Adds the event to the end of the list of events
+
+        @param event_dict [dict] : the dictionary capturing the info associated with the event
+        """
+        self.db.games.update_one(filter={"_id": self.db_id}, update={"$push": {"events": event_dict}})
 """
 ------------------------------------------------------------------------------------------------------------------------
                                                        Functions
