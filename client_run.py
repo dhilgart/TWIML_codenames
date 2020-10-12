@@ -12,6 +12,7 @@ This file starts an async event loop and then adds a new task each X seconds to 
 
 import TWIML_codenames_API_Client
 import asyncio
+import time
 import json
 
 async def check_status_loop(active_games):
@@ -31,7 +32,11 @@ async def check_status(active_games):
             sends the outputs from that function back to the server
     """
     # request the status from the server:
-    status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
+    status = None
+    while status is None:
+        status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
+        if status is None:
+            time.sleep(1) # do not execute any other calls to the server while waiting to retry check_status
 
     # Have any active games ended?
     active_games = await TWIML_codenames_API_Client.check_for_ended_games(active_games, status['active games'].keys(),

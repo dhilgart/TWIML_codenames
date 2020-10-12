@@ -62,10 +62,12 @@ async def check_status(player_id, player_key):
                                   }
             }
     """
-    #add error handling below
     r = requests.get(url=root_url+'/', params={'player_id': player_id, 'player_key': player_key})
-    status_dict = pickle.loads(r.content)
-    return status_dict
+    if r.ok:
+        status_dict = pickle.loads(r.content)
+        return status_dict
+    else:
+        return None
 
 async def query_and_respond(player_id, player_key, game_id, role):
     """
