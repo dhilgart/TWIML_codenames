@@ -50,8 +50,8 @@ root="/"
 db=config.get_connection()
 
 #When starting the server, create the clientlist and gamelist objects for keeping track of the clients and the games
-clientlist=TWIML_codenames_API_Server.Clientlist()
-gamelist=TWIML_codenames_API_Server.Gamelist(clientlist,db)
+clientlist=TWIML_codenames_API_Server.Clientlist(db)
+gamelist=TWIML_codenames_API_Server.Gamelist(clientlist)
 
 app = FastAPI() # called by uvicorn server_run:app
 

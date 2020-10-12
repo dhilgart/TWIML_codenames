@@ -16,7 +16,7 @@ def get_connection():
     db_client = pymongo.MongoClient(settings.db_connection)
     db = db_client[settings.db_collection]
 
-    db.user.create_index([('user_name', pymongo.ASCENDING)], unique=True)
+    db.players.create_index([('player_id', pymongo.ASCENDING)], unique=True)
     db.games.create_index([('game_id', pymongo.ASCENDING)], unique=True)
 
     return db

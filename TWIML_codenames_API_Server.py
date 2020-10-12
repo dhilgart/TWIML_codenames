@@ -8,7 +8,7 @@ Contains 4 class definitions:
     Gamelist : Keeps track of which games are currently in progress and stores info for those that have completed
     MongoLogger : Interfaces with MongoDB to write the log for an individual game
 
-Contains 8 functions:
+Contains 6 functions:
     validate(player_id, player_key) [bool] : returns True if the player_key is the correct one for the player_id
     send_as_bytes(var_to_send) [fastapi.Response] : converts any object (including a dict filled with various objects)
         into bytes to be sent via the API
@@ -18,8 +18,6 @@ Contains 8 functions:
     pull_game_log(game_id, player_id, db) [dict] : returns the game log for an individual game
     scrub_game_log(game_dict, player_id) [dict] : removes info from the game log that would not be known to the
         player_id who is pulling the log
-    write_playerlist() : writes the playerlist to disk
-    read_playerlist() list[TWIML_codenames.Player objects] : reads the playerlist from disk
 
 Contains the following global variables (set at the bottom of this file):
     client_active_timeout [timedelta] : how often a client needs to interact with the server to remain active
@@ -27,7 +25,6 @@ Contains the following global variables (set at the bottom of this file):
         started
     max_active_games_per_player [int] : how many games a player can participate in at once
     wordlist list[str] : the list of words from which the gameboards will randomly select 25 words when generated
-    playerlist [dict] : the list which stores the players' win/loss records and ratings
 """
 
 """
@@ -35,7 +32,6 @@ Contains the following global variables (set at the bottom of this file):
                                                          To Do
 ------------------------------------------------------------------------------------------------------------------------
     - Write validate function
-    - Eliminate playerlist by incorporating into clientlist?
     - Save/load gamelist to/from disk?
 """
 
@@ -48,8 +44,6 @@ import TWIML_codenames
 from datetime import datetime, timedelta
 from fastapi import Response # needed for transmitting information in byte format
 import pickle
-import json
-import os.path
 import random
 from copy import deepcopy
 """
@@ -65,6 +59,7 @@ class Clientlist(object):
     Instance variables:
         .clients [dict] : a dictionary of form {player_id : TWIML_codenames_API_server.Client} for each client who has
             interacted with the server since it was last started.
+        .db [pymongo database] : a pointer to the pymongo database connection
 
     Functions:
         .client_touch(player_id) : Called whenever a client interacts with the server to prevent them timing out
@@ -77,11 +72,14 @@ class Clientlist(object):
             available to start a new game
         .b_games_to_start [bool] : True if there are enough available clients in .available_clients to start a new game
     """
-    def __init__(self):
+    def __init__(self, db):
         """
         Instantiate a new Clientlist
+
+        @param db [pymongo database] : a pointer to the pymongo database connection
         """
         self.clients = {}
+        self.db = db
 
     def __getitem__(self, key):
         return self.clients[key]
@@ -107,7 +105,7 @@ class Clientlist(object):
 
         @param player_id [int] : the unique 4-digit player identifier
         """
-        self.clients[player_id] = Client(player_id)
+        self.clients[player_id] = Client(player_id, self.db)
 
     @property
     def active_clients(self):
@@ -143,6 +141,7 @@ class Client(object):
 
     Instance variables:
         .player_id [int] : the unique 4-digit player identifier
+        .player [TWIML_codenames.Player] : the TWIML_codenames.Player object for this player
         .last_active [datetime] : the timestamp of the most recent time the client interacted with the server
         .prev_active [datetime] : the timestamp of the 2nd-most recent time the client interacted with the server
         .active_games [dict] : a nested dictionary of form {game_id : role_info} for each active game this player is
@@ -156,6 +155,8 @@ class Client(object):
                  'role_info'    : <see role_info as defined in .active_games>,
                  'completed'    : <True if the game played out until there was a winner, False if it timed out>,
                  'result'       : <TWIML_Codenames.Game.game_result dictionary>}
+        .db [pymongo database] : a pointer to the pymongo database connection
+        .db_id [pymongo ObjectID] : the unique ObjectID for this player's document in the database
 
     Functions:
         .touch() : Called whenever a client interacts with the server to prevent them from timing out
@@ -170,29 +171,40 @@ class Client(object):
         .active [bool] : True if the client has interacted with the server more recently than the client_active_timeout
         .num_active_games [int] : the number of games the client is currently participating in
     """
-    def __init__(self, player_id):
+    def __init__(self, player_id, db):
         """
         Instantiate a new Client
-        When called, ensures that the player_id also exists in playerlist
 
         @param player_id [int] : the unique 4-digit player identifier
+        @param db [pymongo db] : a connection to the pymongo db
         """
         self.player_id = player_id
         self.last_active = datetime.now()
         self.prev_active = 0
         self.active_games = {}
         self.ended_games = {}
+        self.db = db
 
-        # When creating a new Client object, check whether the player exists in the playerlist.
-        if player_id not in playerlist.keys():
-            # If not, create a Player object and add it to the playerlist:
-            new_player = TWIML_codenames.Player(player_id)
+        # Read player data from MongoDB
+        result = db.players.find_one(filter={"player_id": player_id})
 
+        if result is None: # if playerdata does not exist in MongoDB:
             # all new clients were being created with pointers to the same TWIML_codenames.Player object for some
             # reason. This deepcopy seems to have fixed it:
-            playerlist[player_id] = deepcopy(new_player)
-            # Then update the playerlist on disk:
-            write_playerlist()
+            self.player = deepcopy(TWIML_codenames.Player(player_id))
+            player_doc = {'player_id':player_id,
+                          'Elo': self.player.Elo,
+                          'record': self.player.record
+                          }
+            self.db_id = db.players.insert_one(player_doc).inserted_id
+        else:
+            self.db_id = result['_id']
+            # all new clients were being created with pointers to the same TWIML_codenames.Player object for some
+            # reason. This deepcopy seems to have fixed it:
+            self.player = deepcopy(TWIML_codenames.Player(player_id = player_id,
+                                                          Elo = result['Elo'],
+                                                          record = result['record'])
+                                   )
 
     def touch(self):
         """
@@ -290,12 +302,19 @@ class Client(object):
         @param b_completed [bool] : True if the game played out until there was a winner, False if it timed out
         @param game_result [dict] : TWIML_Codenames.Game.game_result dictionary
         """
-        self.ended_games[game_id] = {'game_id' : game_id,
-                                     'role_info': self.active_games[game_id],
-                                     'completed': b_completed,
-                                     'result': game_result
-                                     }
-        del self.active_games[game_id]
+        # Sometimes this function is called a second time after the game has already been moved. So first check if this
+        # game still exists in self.active_games:
+        if game_id in self.active_games.keys():
+            # if the game completed, the Elo and W/L ratings will have changed, so update the MongoDB entry for this player:
+            if b_completed:
+                self.db.players.update_one(filter={"_id": self.db_id}, update={"$set": {'Elo': self.player.Elo}})
+                self.db.players.update_one(filter={"_id": self.db_id}, update={"$set": {'record': self.player.record}})
+            self.ended_games[game_id] = {'game_id' : game_id,
+                                         'role_info': self.active_games[game_id],
+                                         'completed': b_completed,
+                                         'result': game_result
+                                         }
+            del self.active_games[game_id]
 
     @property
     def active(self):
@@ -336,19 +355,18 @@ class Gamelist(object):
             in the Gamelist as well as in each Client
         .is_active_game(game_id) [bool] : True if the game is active, False if it has ended
     """
-    def __init__(self, clientlist, db):
+    def __init__(self, clientlist):
         """
         Instantiate a new Gamelist
 
         @param clientlist [Clientlist] : a pointer to the clientlist object for this server session
-        @param db [pymongo database] : a pointer to the pymongo database connection
         """
         self.clientlist = clientlist
-        self.db = db
+        self.db = clientlist.db
         self.active_games = {}
         self.ended_games = {}
         self.next_game_id = \
-            max([x['game_id'] for x in db.games.find(projection=['game_id'])] # Get a list of all game_ids in the db
+            max([x['game_id'] for x in self.db.games.find(projection=['game_id'])] # Get list of all game_ids in the db
                 +[100000] # If there aren't any game_ids yet, start at 100000
                 )+1 # The next game needs to be one higher than the max
 
@@ -382,8 +400,8 @@ class Gamelist(object):
         random.shuffle(available_clients)
         for i in range(num_new_games):
             game_clients = available_clients[4*i:4*(i+1)]
-            team1 = [playerlist[client.player_id] for client in game_clients[:2]]
-            team2 = [playerlist[client.player_id] for client in game_clients[2:]]
+            team1 = [client.player for client in game_clients[:2]]
+            team2 = [client.player for client in game_clients[2:]]
             new_game_id = self.next_game_id
             self.next_game_id += 1
             gameboard = TWIML_codenames.Gameboard(wordlist)
@@ -408,8 +426,6 @@ class Gamelist(object):
         game_ids_to_check = [game_id for game_id in game_ids_to_check if game_id in self.active_games.keys()]
         for game_id in game_ids_to_check:
             if self.active_games[game_id]['Game object'].game_completed:
-                # if the game completed, the Elo and W/L ratings will have changed, so write the playerlist to disk:
-                write_playerlist()
                 self.move_ended_game(game_id, b_completed=True)
             elif self.active_games[game_id]['Game object'].check_timed_out(client_active_timeout):
                 self.move_ended_game(game_id, b_completed=False)
@@ -531,20 +547,6 @@ def send_as_bytes(var_to_send):
     """
     return Response(content=pickle.dumps(var_to_send))
 
-def list_completed_games(db):
-    """
-    Returns a list of game_ids for all completed games
-
-    @param db [pymongo db] : a connection to the pymongo db
-
-    @returns completed_game_ids [list[int]] : a list of the unique 6-digit identifiers for each completed game in the db
-    """
-    results = db.games.find(filter={"in_progress": False}, projection=['game_id'])
-    completed_game_ids=[]
-    for game_dict in results:
-        completed_game_ids.append(game_dict['game_id'])
-    return completed_game_ids
-
 def list_player_games(player_to_pull, db):
     """
     Returns a list of game_ids for all games this player is/was involved in
@@ -629,30 +631,6 @@ def scrub_game_log(game_dict, player_id):
                 del event['word_guessed']
 
     return temp_dict
-
-def write_playerlist():
-    """
-    Writes the playerlist to disk
-    """
-    playerlist_dump = {player.player_id : {'Elo':player.Elo, 'record':player.record} for player in playerlist.values()}
-    json.dump(playerlist_dump, open('playerlist.txt', 'w'))
-
-def read_playerlist():
-    """
-    Reads the playerlist from disk
-    For each player in the disk playerlist, creates a new TWIML_codenames.Player object populated with the correct Elo
-        and W/L record data and adds it to the dict
-
-    @returns [dict] : the playerlist dict of form {player_id : TWIML_codenames.Player object}
-    """
-    if os.path.exists('playerlist.txt'):
-        player_data = json.load(open('playerlist.txt', 'r'))
-        playerlist = {int(player_id) : TWIML_codenames.Player(int(player_id), pdata['Elo'], pdata['record']) for
-                      player_id, pdata in player_data.items()}
-    else:
-        playerlist = {}
-    return playerlist
-
 """
 ------------------------------------------------------------------------------------------------------------------------
                                                     Global Variables
@@ -663,4 +641,3 @@ min_clients_to_start_new_game = 6 # needs to be >4 or a new game will start with
 max_active_games_per_player = 1
 # load the list of words from which the gameboards will randomly select 25 words when generated:
 wordlist = [line.strip() for line in open('wordlist.txt', 'r').readlines()]
-playerlist = read_playerlist()
