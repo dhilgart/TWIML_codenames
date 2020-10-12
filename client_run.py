@@ -33,10 +33,17 @@ async def check_status():
     # request the status from the server:
     status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
 
+    # Have any active games ended?
+    await TWIML_codenames_API_Client.check_for_ended_games(active_games, status['active games'].keys(),
+                                                           player_id, player_key)
+
     # Does the player have any active games?
     if len(status['active games']) > 0:
         # For each active game...
         for game_data in status['active games'].values():
+            # is this a new game?
+            active_games = await TWIML_codenames_API_Client.check_if_new_game(active_games, game_data['game_id'])
+
             # ...check if the server is waiting on this player:
             if game_data['waiting on']['player_id'] == player_id:
                 # if so, call query_and_respond()
@@ -55,6 +62,8 @@ if __name__ == "__main__":
     # Create the async event loop
     loop = asyncio.get_event_loop()
     task = loop.create_task(check_status_loop())
+
+    active_games=[]
 
     # run the loop
     try:

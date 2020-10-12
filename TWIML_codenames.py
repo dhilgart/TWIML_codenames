@@ -484,7 +484,7 @@ class Game(object):
         if result == -1:  # If the operative guessed the assassin word
             self.logger.add_event({'event': 'game over',
                                    'timestamp': datetime.utcnow(),
-                                   'reason': 'guessed assassin word'
+                                   'reason': f'Team {self.curr_team} guessed assassin word'
                                    })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}
@@ -492,7 +492,7 @@ class Game(object):
         elif self.gameboard.remaining(self.curr_team) == 0: #if the current team has no words left to guess
             self.logger.add_event({'event': 'game over',
                                    'timestamp': datetime.utcnow(),
-                                   'reason': f'all team {self.curr_team} words guessed'
+                                   'reason': f'All team {self.curr_team} words guessed'
                                    })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.curr_team}
@@ -500,7 +500,7 @@ class Game(object):
         elif self.gameboard.remaining(self.not_curr_team) == 0: #if the other (not-current) team has no words left to guess
             self.logger.add_event({'event': 'game over',
                                    'timestamp': datetime.utcnow(),
-                                   'reason': f'all team {self.not_curr_team} words guessed'
+                                   'reason': f'All team {self.not_curr_team} words guessed'
                                    })
             self.game_completed = True
             self.game_result['winning team'] = {'num' : self.not_curr_team}

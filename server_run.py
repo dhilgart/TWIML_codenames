@@ -272,6 +272,11 @@ def get_completed_games():
 
 @app.get(root+"num_active_clients/")
 def get_num_active_clients():
+    """
+    returns a count of how many active clients are logged in to the server
+
+    @returns (int) : a count of how many active clients are logged in to the server
+    """
     return clientlist.active_clients
 
 if __name__ == "__main__":
