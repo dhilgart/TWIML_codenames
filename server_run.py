@@ -5,7 +5,7 @@ Dan Hilgart <dhilgart@gmail.com>
 notes:
     This file is written to be run on uvicorn using the FastAPI library by calling 'uvicorn server_run:app' from the
         command line
-    This server has 8 functions by which clients can interact with it:
+    This server has 9 functions by which clients can interact with it:
         get(root) : returns the current status for the player
         get(generate_clue) : returns the inputs the player will need to generate a clue
         post(generate_clue) : receives the clue_word and clue_count from the player and updates the game accordingly
@@ -14,11 +14,12 @@ notes:
         get(log) : returns the game log for an individual game
         get(games_by_player) : returns a list of game_ids for all games this player is/was involved in
         get(completed_games) : returns a list of game_ids for all completed games
+        get(num_active_clients) : returns a count of how many active clients are logged in to the server
     Most of the supporting functions and classes are defined in TWIML_codenames_API_Server
     The first thing done for every request is to validate the player_id with the player_key using
         TWIML_codenames_API_Server.validate(player_id,player_key)
-    With the exception of the last 3 (log-related) functions, all returns are sent as bytes (using
-        TWIML_codenames_API_Server.send_as_bytes) so objects (e.g. numpy arrays or custom class obejcts) can be encoded
+    For the first 5 functions, returns are sent as bytes (using TWIML_codenames_API_Server.send_as_bytes) so objects
+        (e.g. numpy arrays or custom class obejcts) can be encoded
 """
 
 import TWIML_codenames
@@ -248,39 +249,30 @@ def get_game_log(game_id: int, player_id: int, player_key: int):
         return 'Will not get here: no validation configured yet'
 
 @app.get(root+"{player_to_pull}/games/")
-def get_games_by_player(player_to_pull:int, player_id: int, player_key: int):
+def get_games_by_player(player_to_pull:int):
     """
     returns a list of game_ids for all games this player is/was involved in
 
     @param player_to_pull (int) : the ID of the player being queried
-    @params player_id, player_key : used for validating player identity
 
     @returns (list): a list of the unique 6-digit ids for each game in the db that this player is/was involved in
         Note: unlike most other endpoints, this does not send the return as bytes
     """
-    if TWIML_codenames_API_Server.validate(player_id, player_key):
-        # any time a client interacts with the server, record the touch (updating the last_active time for this client)
-        clientlist.client_touch(player_id)
-        return TWIML_codenames_API_Server.list_player_games(player_to_pull, db)
-    else:
-        return 'Will not get here: no validation configured yet'
+    return TWIML_codenames_API_Server.list_player_games(player_to_pull, db)
 
 @app.get(root+"completed_games/")
-def get_completed_games(player_id: int, player_key: int):
+def get_completed_games():
     """
     returns a list of game_ids for all completed games
-
-    @params player_id, player_key : used for validating player identity
 
     @returns (list): a list of the unique 6-digit identifiers for each completed game in the db.
         Note: unlike most other endpoints, this does not send the return as bytes
     """
-    if TWIML_codenames_API_Server.validate(player_id, player_key):
-        # any time a client interacts with the server, record the touch (updating the last_active time for this client)
-        clientlist.client_touch(player_id)
-        return TWIML_codenames_API_Server.list_completed_games(db)
-    else:
-        return 'Will not get here: no validation configured yet'
+    return TWIML_codenames_API_Server.list_completed_games(db)
+
+@app.get(root+"num_active_clients/")
+def get_num_active_clients():
+    return clientlist.active_clients
 
 if __name__ == "__main__":
    PORT = int(os.environ.get("PORT",8000))
