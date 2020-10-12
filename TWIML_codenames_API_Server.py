@@ -25,13 +25,13 @@ Contains the following global variables (set at the bottom of this file):
         started
     max_active_games_per_player [int] : how many games a player can participate in at once
     wordlist list[str] : the list of words from which the gameboards will randomly select 25 words when generated
+    player_keys [pandas dataframe] : the list of player_ids and associated player_keys for use in player validation
 """
 
 """
 ------------------------------------------------------------------------------------------------------------------------
                                                          To Do
 ------------------------------------------------------------------------------------------------------------------------
-    - Write validate function
     - Save/load gamelist to/from disk?
 """
 
@@ -41,6 +41,7 @@ Contains the following global variables (set at the bottom of this file):
 ------------------------------------------------------------------------------------------------------------------------
 """
 import TWIML_codenames
+import pandas as pd
 from datetime import datetime, timedelta
 from fastapi import Response # needed for transmitting information in byte format
 import pickle
@@ -533,9 +534,10 @@ def validate(player_id, player_key):
 
     @returns [bool] : True if the player_key is the correct one for the player_id
     """
-    ### TBD ###
-    return True
-
+    # Check if there is a row in player_keys that has both the player_id and the player_key. If the first dimension of
+    # the resulting shape is 1, then there is and the player_key is validated:
+    return player_keys.loc[(player_keys['player_id']==player_id) &
+                           (player_keys['player_key']==player_key)].shape[0] == 1
 
 def send_as_bytes(var_to_send):
     """
@@ -641,3 +643,4 @@ min_clients_to_start_new_game = 6 # needs to be >4 or a new game will start with
 max_active_games_per_player = 1
 # load the list of words from which the gameboards will randomly select 25 words when generated:
 wordlist = [line.strip() for line in open('wordlist.txt', 'r').readlines()]
+player_keys = pd.read_csv('player_keys.csv')

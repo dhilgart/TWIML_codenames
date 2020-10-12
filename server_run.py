@@ -90,7 +90,7 @@ def get_player_status(player_id: int, player_key: int):
         to_return = clientlist[player_id].return_status(gamelist)
         return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/generate_clue/")
 def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
@@ -126,7 +126,7 @@ def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.post(root+"{game_id}/generate_clue/")
 def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, data: generate_clues_body):
@@ -156,7 +156,7 @@ def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, da
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/generate_guesses/")
 def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
@@ -199,7 +199,7 @@ def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.post(root+"{game_id}/generate_guesses/")
 def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int, data: generate_guesses_body):
@@ -227,7 +227,7 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/log/")
 def get_game_log(game_id: int, player_id: int, player_key: int):
@@ -246,7 +246,7 @@ def get_game_log(game_id: int, player_id: int, player_key: int):
         to_return=TWIML_codenames_API_Server.pull_game_log(game_id, player_id, db)
         return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{player_to_pull}/games/")
 def get_games_by_player(player_to_pull:int):
