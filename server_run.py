@@ -30,7 +30,6 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 import os
-from router import user
 import config
 
 class generate_clues_body(BaseModel):
