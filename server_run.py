@@ -272,7 +272,7 @@ def get_num_active_clients():
 
     @returns (int) : a count of how many active clients are logged in to the server
     """
-    return clientlist.active_clients
+    return len(clientlist.active_clients)
 
 @app.get(root+"leaderboards/")
 def get_num_active_clients():
