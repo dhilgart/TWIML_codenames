@@ -1,11 +1,14 @@
 """
-my_model.py: template for models to be used in the TWIMLfest 2020 codenames competition
+my_model.py: template for models to be used in the TWIMLfest 2020 Codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
 import TWIML_codenames
 import numpy as np
-import pickle
+
+"""
+A MORE-DETAILED TEMPLATE USING WORD VECTORS IS IN DEVELOPMENT AND WILL BE RELEASED BEFORE THE COMPETITION BEGINS!
+"""
 
 def generate_clue(game_id, team_num, gameboard):
     """
