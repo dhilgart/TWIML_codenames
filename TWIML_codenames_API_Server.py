@@ -8,10 +8,11 @@ Contains 4 class definitions:
     Gamelist : Keeps track of which games are currently in progress and stores info for those that have completed
     MongoLogger : Interfaces with MongoDB to write the log for an individual game
 
-Contains 6 functions:
+Contains 7 functions:
     validate(player_id, player_key) [bool] : returns True if the player_key is the correct one for the player_id
     send_as_bytes(var_to_send) [fastapi.Response] : converts any object (including a dict filled with various objects)
         into bytes to be sent via the API
+    get_leaderboards(db) [dict] : pulls the current leaderboards from the players MongoDB
     list_player_games(player_to_pull, db) [list[int]] : returns a list of game_ids for all games this player is/was
         involved in
     list_completed_games(db) [list[int]] : returns a list of game_ids for all completed games
@@ -548,6 +549,34 @@ def send_as_bytes(var_to_send):
     @returns [fastapi.Response] : the object encoded as bytes
     """
     return Response(content=pickle.dumps(var_to_send))
+
+def get_leaderboards(db):
+    """
+    Pulls the current leaderboards from the players MongoDB
+
+    @param db [pymongo db] : a connection to the pymongo db
+
+    @returns leaderboards [dict] : a dict of format
+        {'Spymasters' : list[(player_id,Elo)],
+         'Operatives' : list[(player_id,Elo)],
+         'Combined'   : list[(player_id,Elo)]}
+    """
+    results = db.players.find(projection=['player_id', 'Elo'])
+    leaderboards = {'Spymasters': [],
+                    'Operatives': [],
+                    'Combined': []
+                    }
+    for player in results:
+        player_id = player['player_id']
+        Elo = player['Elo']
+        leaderboards['Spymasters'].append((player_id, Elo['Spymaster']))
+        leaderboards['Operatives'].append((player_id, Elo['Operative']))
+        leaderboards['Combined'].append((player_id, (Elo['Spymaster'] + Elo['Operative'])/2))
+
+    for key, leaderboard in leaderboards.items():
+        leaderboards[key] = sorted(leaderboard, key=lambda k: k[1], reverse=True)
+
+    return leaderboards
 
 def list_player_games(player_to_pull, db):
     """

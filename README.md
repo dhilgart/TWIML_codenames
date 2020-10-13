@@ -101,6 +101,9 @@ There are other API endpoints available from the server which may provide some i
 - @app.get("/num_active_clients/")
   - returns a count of the number of clients currently active on the server
   - Path, query parameters = None
+- @app.get("/leaderboards/")
+  - returns the current leaderboards
+  - Path, query parameters = None
 
 ## Other files in Repo
 
