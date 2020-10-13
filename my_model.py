@@ -1,13 +1,36 @@
 """
-my_model.py: template for models to be used in the TWIMLfest 2020 codenames competition
+my_model.py: template for models to be used in the TWIMLfest 2020 Codenames competition
 Dan Hilgart <dhilgart@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
+
+"""
+A MORE-DETAILED TEMPLATE USING WORD VECTORS IS IN DEVELOPMENT AND WILL BE RELEASED BEFORE THE COMPETITION BEGINS!
+"""
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+                                                        Imports
+------------------------------------------------------------------------------------------------------------------------
+"""
 import TWIML_codenames
 import numpy as np
-import pickle
+"""
+------------------------------------------------------------------------------------------------------------------------
+                                                    Global Variables
+------------------------------------------------------------------------------------------------------------------------
+Place anything here that you want to be loaded when this module is imported by TWIML_codenames_API_client.py 
+For example, if you are loading word vectors, load them here as global variables so they do not have to be loaded each 
+    time the generate_clue and generate_guesses functions are called  
+"""
 
-def generate_clue(game_id, team_num, gameboard):
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+                                                       Functions
+------------------------------------------------------------------------------------------------------------------------
+"""
+def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     """
     This is the function that will be called when your bot is the Spymaster
     Your bot will need to provide a clue_word and a clue_count which will be used by your teammate's bot to guess words

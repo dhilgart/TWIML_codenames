@@ -12,6 +12,7 @@ This file starts an async event loop and then adds a new task each X seconds to 
 
 import TWIML_codenames_API_Client
 import asyncio
+import time
 import json
 
 async def check_status_loop(active_games):
@@ -31,27 +32,34 @@ async def check_status(active_games):
             sends the outputs from that function back to the server
     """
     # request the status from the server:
-    status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
+    status = None
+    while status is None:
+        status = await TWIML_codenames_API_Client.check_status(player_id, player_key)
+        if status is None:
+            time.sleep(1) # do not execute any other calls to the server while waiting to retry check_status
 
-    # Have any active games ended?
-    active_games = await TWIML_codenames_API_Client.check_for_ended_games(active_games, status['active games'].keys(),
-                                                                          player_id, player_key)
+    if 'ERROR' in status.keys():
+        print(status)
+    else:
+        # Have any active games ended?
+        active_games = await TWIML_codenames_API_Client.check_for_ended_games(active_games, status['active games'].keys(),
+                                                                              player_id, player_key)
 
-    # Does the player have any active games?
-    if len(status['active games']) > 0:
-        # For each active game...
-        for game_data in status['active games'].values():
-            # is this a new game?
-            active_games = await TWIML_codenames_API_Client.check_if_new_game(active_games, game_data['game_id'])
+        # Does the player have any active games?
+        if len(status['active games']) > 0:
+            # For each active game...
+            for game_data in status['active games'].values():
+                # is this a new game?
+                active_games = await TWIML_codenames_API_Client.check_if_new_game(active_games, game_data['game_id'])
 
-            # ...check if the server is waiting on this player:
-            if game_data['waiting on']['player_id'] == player_id:
-                # if so, call query_and_respond()
-                loop.create_task(TWIML_codenames_API_Client.query_and_respond(player_id=player_id,
-                                                                              player_key=player_key,
-                                                                              game_id=game_data['game_id'],
-                                                                              role=game_data['waiting on']['role']
-                                                                              ))
+                # ...check if the server is waiting on this player:
+                if game_data['waiting on']['player_id'] == player_id:
+                    # if so, call query_and_respond()
+                    loop.create_task(TWIML_codenames_API_Client.query_and_respond(player_id=player_id,
+                                                                                  player_key=player_key,
+                                                                                  game_id=game_data['game_id'],
+                                                                                  role=game_data['waiting on']['role']
+                                                                                  ))
 
 if __name__ == "__main__":
     # Load player_id and player_key from the myPlayerID-Key.txt file

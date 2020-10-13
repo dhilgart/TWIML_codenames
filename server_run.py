@@ -5,7 +5,7 @@ Dan Hilgart <dhilgart@gmail.com>
 notes:
     This file is written to be run on uvicorn using the FastAPI library by calling 'uvicorn server_run:app' from the
         command line
-    This server has 9 functions by which clients can interact with it:
+    This server has 10 functions by which clients can interact with it:
         get(root) : returns the current status for the player
         get(generate_clue) : returns the inputs the player will need to generate a clue
         post(generate_clue) : receives the clue_word and clue_count from the player and updates the game accordingly
@@ -15,6 +15,7 @@ notes:
         get(games_by_player) : returns a list of game_ids for all games this player is/was involved in
         get(completed_games) : returns a list of game_ids for all completed games
         get(num_active_clients) : returns a count of how many active clients are logged in to the server
+        get(leaderboards) : returns the current leaderboards
     Most of the supporting functions and classes are defined in TWIML_codenames_API_Server
     The first thing done for every request is to validate the player_id with the player_key using
         TWIML_codenames_API_Server.validate(player_id,player_key)
@@ -30,7 +31,6 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 import os
-from router import user
 import config
 
 class generate_clues_body(BaseModel):
@@ -50,15 +50,10 @@ root="/"
 db=config.get_connection()
 
 #When starting the server, create the clientlist and gamelist objects for keeping track of the clients and the games
-clientlist=TWIML_codenames_API_Server.Clientlist()
-gamelist=TWIML_codenames_API_Server.Gamelist(clientlist,db)
+clientlist=TWIML_codenames_API_Server.Clientlist(db)
+gamelist=TWIML_codenames_API_Server.Gamelist(clientlist)
 
 app = FastAPI() # called by uvicorn server_run:app
-
-app.include_router(
-    user.router,
-    prefix="/user",
-    tags=["user"])
 
 @app.get(root)
 def get_player_status(player_id: int, player_key: int):
@@ -90,7 +85,7 @@ def get_player_status(player_id: int, player_key: int):
         to_return = clientlist[player_id].return_status(gamelist)
         return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/generate_clue/")
 def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
@@ -126,7 +121,7 @@ def send_generate_clue_info(game_id: int, player_id: int, player_key: int):
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.post(root+"{game_id}/generate_clue/")
 def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, data: generate_clues_body):
@@ -156,7 +151,7 @@ def receive_generate_clue_info(game_id: int, player_id: int, player_key: int, da
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/generate_guesses/")
 def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
@@ -199,7 +194,7 @@ def send_generate_guesses_info(game_id: int, player_id: int, player_key: int):
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.post(root+"{game_id}/generate_guesses/")
 def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int, data: generate_guesses_body):
@@ -227,7 +222,7 @@ def receive_generate_guesses_info(game_id: int, player_id: int, player_key: int,
             to_return = clientlist[player_id].return_status(gamelist)
             return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{game_id}/log/")
 def get_game_log(game_id: int, player_id: int, player_key: int):
@@ -246,7 +241,7 @@ def get_game_log(game_id: int, player_id: int, player_key: int):
         to_return=TWIML_codenames_API_Server.pull_game_log(game_id, player_id, db)
         return TWIML_codenames_API_Server.send_as_bytes(to_return)
     else:
-        return 'Will not get here: no validation configured yet'
+        return TWIML_codenames_API_Server.send_as_bytes({'ERROR':'incorrect player_id/player_key'})
 
 @app.get(root+"{player_to_pull}/games/")
 def get_games_by_player(player_to_pull:int):
@@ -277,7 +272,19 @@ def get_num_active_clients():
 
     @returns (int) : a count of how many active clients are logged in to the server
     """
-    return clientlist.active_clients
+    return len(clientlist.active_clients)
+
+@app.get(root+"leaderboards/")
+def get_num_active_clients():
+    """
+    returns the current leaderboards
+
+    @returns (dict) : a dict of format
+        {'Spymasters' : list[(player_id,Elo)],
+         'Operatives' : list[(player_id,Elo)],
+         'Combined'   : list[(player_id,Elo)]}
+    """
+    return TWIML_codenames_API_Server.get_leaderboards(db)
 
 if __name__ == "__main__":
    PORT = int(os.environ.get("PORT",8000))
