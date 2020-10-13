@@ -152,14 +152,22 @@ async def check_for_ended_games(local_active_games, status_active_games, player_
                              params={'player_id': player_id, 'player_key': player_key})
             returned = pickle.loads(r.content)
             game_log = returned
-            if game_log['events'][-1]['event'] == 'game over':
-                # game completed successfully
-                end_reason = game_log['events'][-1]['reason']
-                winning_team_ids = [player['player_id'] for player in game_log['winning team']['players']]
-                if player_id in winning_team_ids:
-                    print(f'{datetime.now()}: game {game_id} ended: {end_reason}. Result = win!')
+            if len(game_log['events']) > 0:
+                if game_log['events'][-1]['event'] == 'game over':
+                    # game completed successfully
+                    end_reason = game_log['events'][-1]['reason']
+                    winning_team_ids = [player['player_id'] for player in game_log['winning team']['players']]
+                    if player_id in winning_team_ids:
+                        print(f'{datetime.now()}: game {game_id} ended: {end_reason}. Result = win!')
+                    else:
+                        print(f'{datetime.now()}: game {game_id} ended: {end_reason}. Result = loss')
                 else:
-                    print(f'{datetime.now()}: game {game_id} ended: {end_reason}. Result = loss')
+                    # game timed out; did not complete
+                    timedout_player_id = game_log['timed out waiting on']['player_id']
+                    if timedout_player_id == player_id:
+                        print(f'{datetime.now()}: game {game_id} ended: timed out waiting on you!')
+                    else:
+                        print(f'{datetime.now()}: game {game_id} ended: timed out waiting on {timedout_player_id}')
             else:
                 # game timed out; did not complete
                 timedout_player_id = game_log['timed out waiting on']['player_id']
