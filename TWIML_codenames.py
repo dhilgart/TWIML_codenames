@@ -611,8 +611,8 @@ class Game(object):
                                                          'waiting for': waiting_for,
                                                          'waiting duration': str(wait_duration)
                                                          },
-                                'teams' : {'1' : [{'player_id' : player.player_id} for player in self.teams[0]],
-                                           '2' : [{'player_id' : player.player_id} for player in self.teams[1]]
+                                'teams' : {'team 1' : [{'player_id' : player.player_id} for player in self.teams[0]],
+                                           'team 2' : [{'player_id' : player.player_id} for player in self.teams[1]]
                                            },
                                 'start time' : self.game_start_time,
                                 'end time' : datetime.utcnow(),
