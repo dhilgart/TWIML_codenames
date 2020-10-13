@@ -1,5 +1,5 @@
 # TWIML_codenames
-This repo contains the code for running the [TWIMLfest](https://twimlai.com/twimlfest/) [codenames competition](https://twimlai.com/twimlfest/sessions/codenames-bot-competition/)
+This repo contains the code for running the [TWIMLfest](https://twimlai.com/twimlfest/) [codenames competition](https://twimlai.com/twimlfest/sessions/codenames-bot-competition/) based on the game ["Codenames" by Vlaada Chvátil](https://czechgames.com/en/codenames/).
 
 ## Competition Overview
 
@@ -11,17 +11,33 @@ The competition server will be open for practice for the first week. Then rating
 
 A python template is provided for your bot containing two functions that you will need to populate: generate_clue() and generate_guesses(). Generate_clue is used when you are the spymaster (the one giving the clues). This function will need to return a one-word clue and a count of how many words on the board are tied to that clue. Generate_guesses is used when you are the operative (the one making the guesses) and will need to return a list of words-on-the-board that you want to guess in the order you want to guess them. These two functions are the only code you need to create to enter. 
 
-You will be provided with my_model.py (the python template for your model), a client_run.py file that takes care of all of the API interactions with the server and calls the generate_clue() and generate_guesses() functions at the appropriate times, and (for reference) all of the code that is used to run the games. In order to play games, all you will need to do is run “python client_run.py” from your command line while the server is open. It will take care of the rest!
+You will be provided with my_model.py (the python template for your model), a client_run.py file that takes care of all of the API interactions with the server and calls the generate_clue() and generate_guesses() functions at the appropriate times, and (for reference) all of the code that is used to run the games.
+
+Note: if you wish to focus on only one of the two roles, you will still need a functioning bot for the other role: in this case please leave the template bot as is for the other role.
+
+## Prizes
+
+In order to be eligible for prizes, you must consent to the terms and conditions: https://twimlai.com/contests/
+
+Yes, there are prizes! Prizes can be distributed as a gift card/credit to your favorite cloud provider or as a credit for TWIML swag. No cash prizes will be distributed.
+
+Prizes will be awarded based on highest Elo rating. Elo rating will be tracked separately for the Spymaster (generate_clues) and Operative (generate_guesses) roles and prizes will be awarded for the top 3 bots in each category. The main prize is for the best combined (average of the Spymaster and Operative) Elo ratings. Your entry may win up to one prize in each of the three categories. Prize amounts are:
+
+|           | Combined | Spymaster | Operative |
+| --------- | -------- | --------- | --------- |
+| 1st Place | $ 125    | $ 50      | $ 50      |
+| 2nd Place | $ 50     | $ 25      | $ 25      |
+| 3rd Place | $ 25     | $ 10      | $ 10      |
 
 ## Rules
 
-Unlike the official Codenames rules, we will not allow a multi-word clue even if it is a proper noun. All clues must be a single word without hyphens. Single word proper nouns ARE allowed.
+Unlike the official Codenames rules, we will not allow a multi-word clue even if it is a proper noun. All clues must be a single word without hyphens. Single word proper nouns *are* allowed.
 
 This competition is meant to test the abilities of your bots. Please do not include any human interactions in your code (e.g. your bot waiting for you to pick the best of the options it generates or you just generating the codeword manually).
 
 Competitors should not "team-up" to gain advantage. Any collaboration should be made in the [Slack channel](https://twimlai.slack.com/archives/C01CM9B3XL4) where anyone else can view and participate. 
 
-In order to be eligible for the leaderboard, your bot will need to have played a minimum of 100 games
+In order to be eligible for prizes, your bot will need to have played a minimum of 100 games
 
 ## Competition Dates (2020)
 
@@ -52,6 +68,14 @@ You will need the following 6 files from the repo:
 - client_run.py - this automates all the interactions with the server, calling the two functions from my_model.py when needed
 - TWIML_codenames_API_Client.py - helper functions for client_run.py
 - requirements.txt - defines the minimum libraries you will need
+
+Detailed documentation for what each file/class/function/variable is used for is included within the files. Please place any questions about the code in the [Slack channel](https://twimlai.slack.com/archives/C01CM9B3XL4) or email to dhilgart@gmail.com.
+
+When you are ready to compete, run the following from your command line:
+
+```
+python client_run.py
+```
 
 #### Important Notes 
 
