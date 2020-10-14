@@ -104,16 +104,19 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     unguessed_good_words = gameboard.unguessed_words(team_num)
     unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
 
+    #filter out words that are on the board
+    candidates=[word for word in clue_word_candidates if word not in gameboard.unguessed_words()]
+
     good_word_distances = {}
     for good_word in unguessed_good_words:
         good_word_distances[good_word] = {}
-        for clue_candidate in clue_word_candidates:
+        for clue_candidate in candidates:
             good_word_distances[good_word][clue_candidate] = dist(good_word, clue_candidate)
 
     bad_word_distances = {}
     for bad_word in unguessed_bad_words:
         bad_word_distances[bad_word] = {}
-        for clue_candidate in clue_word_candidates:
+        for clue_candidate in candidates:
             bad_word_distances[bad_word][clue_candidate] = dist(bad_word, clue_candidate)
 
     clue_count = 0
@@ -122,7 +125,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
 
     for clue_count_to_try in range(len(unguessed_good_words)):
         for good_word_combo in itertools.combinations(unguessed_good_words,clue_count_to_try):
-            for clue_candidate in clue_word_candidates:
+            for clue_candidate in candidates:
                 w_d = float('Inf')
                 for bad_word in unguessed_bad_words:
                     if bad_word_distances[bad_word][clue_candidate] < w_d:
