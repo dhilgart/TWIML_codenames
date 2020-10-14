@@ -35,10 +35,7 @@ For example, if you are loading word vectors, load them here as global variables
 nlp = spacy.load("en_core_web_lg") # if OSError: [E050] Can't find model 'en_core_web_lg', run this from command line:
                                    # 'python -m spacy download en_core_web_lg'
 
-clue_word_candidates = [word for word in
-                        np.random.choice([line.strip() for line in open('nounlist.txt', 'r').readlines()],
-                                         1000,replace=False) # number of candidate words reduced to improve runtime
-                        ]
+clue_word_candidates = [line.strip() for line in open('nounlist.txt', 'r').readlines()]
 ### END YOUR CODE
 
 """
@@ -105,7 +102,9 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
 
     #filter out words that are on the board
-    candidates=[word for word in clue_word_candidates if word not in gameboard.unguessed_words()]
+    full_candidates=[word for word in clue_word_candidates if word not in gameboard.unguessed_words()]
+    candidates = [word for word in
+                  np.random.choice(full_candidates,1000, replace=False)] # number of words reduced to improve runtime
 
     good_word_distances = {}
     for good_word in unguessed_good_words:
@@ -173,7 +172,7 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
     # Algorithm based on the following paper:
     # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
     # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
-    threshold_for_guessing = 0.2
+    threshold_for_guessing = 0.5
 
     guesses = []
     while len(guesses) < clue_count:
