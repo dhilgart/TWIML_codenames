@@ -150,9 +150,6 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
             unguessed_words.remove(best)
         else:
             break
-    print(f'unguessed_words: {unguessed_words}')
-    print(f'clue: {clue_word} for {clue_count}')
-    print(f'guesses: {guesses}')
     ### END YOUR CODE
     
     return guesses
