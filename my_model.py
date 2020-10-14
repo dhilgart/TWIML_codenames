@@ -1,34 +1,66 @@
 """
 my_model.py: template for models to be used in the TWIMLfest 2020 Codenames competition
-Dan Hilgart <dhilgart@gmail.com>
+Dan Hilgart <dhilgart@gmail.com> and Yuri Shlyakhter <yuri.shlyakhter@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
 
 """
-A MORE-DETAILED TEMPLATE USING WORD VECTORS IS IN DEVELOPMENT AND WILL BE RELEASED BEFORE THE COMPETITION BEGINS!
+A MORE-DETAILED GENERATE_CLUE TEMPLATE USING WORD VECTORS IS IN DEVELOPMENT AND WILL BE RELEASED BEFORE THE 
+COMPETITION BEGINS!
 """
 
 """
 ------------------------------------------------------------------------------------------------------------------------
-                                                        Imports
+                                                    Required Imports
 ------------------------------------------------------------------------------------------------------------------------
+Do not remove these
 """
 import TWIML_codenames
 import numpy as np
+
 """
 ------------------------------------------------------------------------------------------------------------------------
-                                                    Global Variables
+                                                      Your Imports                                                      
+------------------------------------------------------------------------------------------------------------------------
+Add/modify as necessary
+"""
+### YOUR CODE HERE
+import spacy # after installing, be sure to run 'python -m spacy download en_core_web_lg'
+### END YOUR CODE
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+                                                  Your Global Variables
 ------------------------------------------------------------------------------------------------------------------------
 Place anything here that you want to be loaded when this module is imported by TWIML_codenames_API_client.py 
 For example, if you are loading word vectors, load them here as global variables so they do not have to be loaded each 
     time the generate_clue and generate_guesses functions are called  
 """
-
+### YOUR CODE HERE
+nlp = spacy.load("en_core_web_lg") # if OSError: [E050] Can't find model 'en_core_web_lg', run this from command line:
+                                   # 'python -m spacy download en_core_web_lg'
+### END YOUR CODE
 
 """
 ------------------------------------------------------------------------------------------------------------------------
-                                                       Functions
+                                                     Your Functions                                                     
 ------------------------------------------------------------------------------------------------------------------------
+Add/modify functions as necessary
+"""
+### YOUR CODE HERE
+def dist(word1, word2):
+    """
+    Calculates the vector-distance between two words
+    """
+    tokens = nlp(word1 + " " + word2)
+    return 1 - tokens[0].similarity(tokens[1])
+### END YOUR CODE
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+                                                   Required Functions                                                   
+------------------------------------------------------------------------------------------------------------------------
+These are the two required functions that you must have in your model file.
 """
 def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     """
@@ -99,7 +131,28 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
         Words on the list will continue to be tapped until a word is tapped that is not one of your team's words
     """
     ### YOUR CODE HERE
-    guesses = [x for x in np.random.choice(unguessed_words,np.random.randint(4))] #pick 0-3 words at random from the unguessed list
+    # Algorithm based on the following paper:
+    # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
+    # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
+    threshold_for_guessing = 0.2
+
+    guesses = []
+    while len(guesses) < clue_count:
+        best = None
+        d = float('Inf')
+        for word in unguessed_words:
+            distance = dist(clue_word, word)
+            if (distance < d):
+                d = distance
+                best = word
+        if (best and d > threshold_for_guessing):
+            guesses.append(best)
+            unguessed_words.remove(best)
+        else:
+            break
+    print(f'unguessed_words: {unguessed_words}')
+    print(f'clue: {clue_word} for {clue_count}')
+    print(f'guesses: {guesses}')
     ### END YOUR CODE
     
     return guesses
