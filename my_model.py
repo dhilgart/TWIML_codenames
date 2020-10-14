@@ -3,12 +3,6 @@ my_model.py: template for models to be used in the TWIMLfest 2020 Codenames comp
 Dan Hilgart <dhilgart@gmail.com> and Yuri Shlyakhter <yuri.shlyakhter@gmail.com>
 see https://czechgames.com/files/rules/codenames-rules-en.pdf for game rules
 """
-
-"""
-A MORE-DETAILED GENERATE_CLUE TEMPLATE USING WORD VECTORS IS IN DEVELOPMENT AND WILL BE RELEASED BEFORE THE 
-COMPETITION BEGINS!
-"""
-
 """
 ------------------------------------------------------------------------------------------------------------------------
                                                     Required Imports
@@ -26,6 +20,7 @@ Add/modify as necessary
 """
 ### YOUR CODE HERE
 import spacy # after installing, be sure to run 'python -m spacy download en_core_web_lg'
+import itertools
 ### END YOUR CODE
 
 """
@@ -39,6 +34,11 @@ For example, if you are loading word vectors, load them here as global variables
 ### YOUR CODE HERE
 nlp = spacy.load("en_core_web_lg") # if OSError: [E050] Can't find model 'en_core_web_lg', run this from command line:
                                    # 'python -m spacy download en_core_web_lg'
+
+clue_word_candidates = [word for word in
+                        np.random.choice([line.strip() for line in open('nounlist.txt', 'r').readlines()],
+                                         1000,replace=False) # number of candidate words reduced to improve runtime
+                        ]
 ### END YOUR CODE
 
 """
@@ -96,9 +96,45 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
                 To give a clue for infinity, provide an int of 10.
     """
     ### YOUR CODE HERE
-    wordlist = ['hello', 'world']
-    clue_word = np.random.choice(wordlist) #pick a clue word at random from the wordlist
-    clue_count = np.random.randint(3) + 1 #give a random clue_count of 1, 2, or 3
+    # Algorithm based on the following paper:
+    # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
+    # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
+    threshold = 0.5
+
+    unguessed_good_words = gameboard.unguessed_words(team_num)
+    unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
+
+    good_word_distances = {}
+    for good_word in unguessed_good_words:
+        good_word_distances[good_word] = {}
+        for clue_candidate in clue_word_candidates:
+            good_word_distances[good_word][clue_candidate] = dist(good_word, clue_candidate)
+
+    bad_word_distances = {}
+    for bad_word in unguessed_bad_words:
+        bad_word_distances[bad_word] = {}
+        for clue_candidate in clue_word_candidates:
+            bad_word_distances[bad_word][clue_candidate] = dist(bad_word, clue_candidate)
+
+    clue_count = 0
+    clue_word = None
+    d = float('Inf')
+
+    for clue_count_to_try in range(len(unguessed_good_words)):
+        for good_word_combo in itertools.combinations(unguessed_good_words,clue_count_to_try):
+            for clue_candidate in clue_word_candidates:
+                w_d = float('Inf')
+                for bad_word in unguessed_bad_words:
+                    if bad_word_distances[bad_word][clue_candidate] < w_d:
+                        w_d = bad_word_distances[bad_word][clue_candidate]
+                    d_r = 0
+                    for good_word in good_word_combo:
+                        if good_word_distances[good_word][clue_candidate] > d_r:
+                            d_r = good_word_distances[good_word][clue_candidate]
+                        if d_r < d and d_r < w_d and d_r < threshold:
+                            d = d_r
+                            clue_word = clue_candidate
+                            clue_count = clue_count_to_try
     ### END YOUR CODE
     
     return clue_word, clue_count
@@ -145,7 +181,7 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
             if (distance < d):
                 d = distance
                 best = word
-        if (best and d > threshold_for_guessing):
+        if (best and d < threshold_for_guessing):
             guesses.append(best)
             unguessed_words.remove(best)
         else:
