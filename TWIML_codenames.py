@@ -134,9 +134,10 @@ class Gameboard(object):
         @returns unguessed_words (list[str]): a list of the words that have not yet been guessed
         """
         if np.isnan(team_num):
-            return self.boardwords[np.isnan(self.boardmarkers)]
+            np_words = self.boardwords[np.isnan(self.boardmarkers)]
         else:
-            return self.boardwords[(self.boardkey==team_num) & (np.isnan(self.boardmarkers))]
+            np_words = self.boardwords[(self.boardkey==team_num) & (np.isnan(self.boardmarkers))]
+        return [word for word in np_words] # convert from np.array to list
 
     def remaining(self, team_num):
         """
