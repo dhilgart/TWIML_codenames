@@ -69,6 +69,14 @@ You will need the following 6 files from the repo:
 - TWIML_codenames_API_Client.py - helper functions for client_run.py
 - requirements.txt - defines the minimum libraries you will need
 
+##### Optional files:
+
+(This file is used by the template bot, but your bot does not have to use it)
+
+- nounlist.txt - a list of words to consider using as clue words
+
+
+
 Detailed documentation for what each file/class/function/variable is used for is included within the files. Please place any questions about the code in the [Slack channel](https://twimlai.slack.com/archives/C01CM9B3XL4) or email to dhilgart@gmail.com.
 
 When you are ready to compete, run the following from your command line:
