@@ -97,7 +97,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     # Algorithm based on the following paper:
     # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
     # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
-    threshold = 0.5
+    threshold = 0.7
 
     unguessed_good_words = gameboard.unguessed_words(team_num)
     unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
@@ -138,6 +138,9 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
                             d = d_r
                             clue_word = clue_candidate
                             clue_count = clue_count_to_try
+    if not clue_word:
+        # if it didn't find a good clue word, grab a new subset of candidates to check and try again:
+        clue_word, clue_count = generate_clue(game_id, team_num, gameboard)
     ### END YOUR CODE
     
     return clue_word, clue_count
