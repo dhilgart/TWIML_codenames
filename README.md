@@ -73,7 +73,7 @@ You will need the following 6 files from the repo:
 
 (This file is used by the template bot, but your bot does not have to use it)
 
-- nounlist.txt - a list of words to consider using as clue words
+- nounlist.txt - a list of words to consider using as clue words. Sourced from http://www.desiquintans.com/nounlist
 
 
 
@@ -95,21 +95,21 @@ Your algorithm must return a response in less than 5 minutes or the server will 
 
 There are other API endpoints available from the server which may provide some information that will be helpful to your bot. See server_run.py for full details. These include:
 
-- @app.get("http://twiml-codenames.herokuapp.com/{game_id}/log/")
+- @app.get("http<span>://twiml-codenames.herokuapp</span>.com/{game_id}/log/")
   - returns the log for any game in binary (a.k.a. pickled) format
   - path parameters = game_id: the 6-digit unique identifier for this game
   - query parameters = player_id, player_key
-- @app.get("http://twiml-codenames.herokuapp.com/{player_to_pull}/games/")
+- @app.get("http<span>://twiml-codenames.herokuapp</span>.com/{player_to_pull}/games/")
   - returns a list of all the game_ids that a single player has been involved in
   - path parameters = player_to_pull: the player_id of the player whose games will be pulled
   - query parameters = None
-- @app.get("http://twiml-codenames.herokuapp.com/completed_games/")
+- @app.get("http<span>://twiml-codenames.herokuapp</span>.com/completed_games/")
   - returns a list of the game_ids of all completed games
   - Path, query parameters = None
-- @app.get("http://twiml-codenames.herokuapp.com/num_active_clients/")
+- @app.get("http<span>://twiml-codenames.herokuapp</span>.com/num_active_clients/")
   - returns a count of the number of clients currently active on the server
   - Path, query parameters = None
-- @app.get("http://twiml-codenames.herokuapp.com/leaderboards/")
+- @app.get("http<span>://twiml-codenames.herokuapp</span>.com/leaderboards/")
   - returns the current leaderboards
   - Path, query parameters = None
 
