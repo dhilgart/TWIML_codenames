@@ -35,6 +35,7 @@ For example, if you are loading word vectors, load them here as global variables
 nlp = spacy.load("en_core_web_lg") # if OSError: [E050] Can't find model 'en_core_web_lg', run this from command line:
                                    # 'python -m spacy download en_core_web_lg'
 
+# nounlist.txt sourced from http://www.desiquintans.com/nounlist
 clue_word_candidates = [line.strip() for line in open('nounlist.txt', 'r').readlines()]
 ### END YOUR CODE
 
