@@ -71,9 +71,9 @@ You will need the following 6 files from the repo:
 
 ##### Optional files:
 
-(This file is used by the template bot, but your bot does not have to use it)
+- TWIML_codenames Demo.ipynb - a jupyter notebook that includes a tutorial demonstrating how a game is played and the functionality of the TWIML_codenames.py classes. Also includes some tools for testing your bot locally.
 
-- nounlist.txt - a list of words to consider using as clue words. Sourced from http://www.desiquintans.com/nounlist
+- nounlist.txt - This file is used by the template bot, but your bot does not have to use it. It is a list of words to consider using as clue words. Sourced from http://www.desiquintans.com/nounlist
 
 
 
@@ -119,7 +119,6 @@ There are other API endpoints available from the server which may provide some i
 - TWIML_codenames_API_Server.py - helper functions and classes for server_run.py
 - config.py - configuration file used by the server for connection to the MongoDB
 - Dockerfile - defines the docker container that runs the API server
-- TWIML_codenames Demo.ipynb - a jupyter notebook demonstrating the functionality of the TWIML_codenames.py classes
 - README.md - this file
 - LICENSE - the license for this code: Mozilla Public License 2.0
 
