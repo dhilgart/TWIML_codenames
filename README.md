@@ -72,8 +72,9 @@ You will need the following 6 files from the repo:
 ##### Optional files:
 
 - TWIML_codenames Demo.ipynb - a jupyter notebook that includes a tutorial demonstrating how a game is played and the functionality of the TWIML_codenames.py classes. Also includes some tools for testing your bot locally.
-
-- nounlist.txt - This file is used by the template bot, but your bot does not have to use it. It is a list of words to consider using as clue words. Sourced from http://www.desiquintans.com/nounlist
+- clue_word_distances.pkl - This is a pickled file used by the template bot's generate_clue function, but your bot does not have to use it. It is based on nounlist.txt and wordlist.txt, see below.
+- nounlist.txt - This file contains a list of words to consider using as clue words. It was used as an input to clue_word_distances.pkl, but you can use it directly if you wish (or not use it at all). Sourced from http://www.desiquintans.com/nounlist
+- wordlist.txt - This file contains the list of words that the gameboards will be built from for this week of the competition. This file will be updated with a new set of words between week 1 and week 2.
 
 
 
