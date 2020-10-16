@@ -22,6 +22,14 @@ Contains 7 functions:
 
 Contains the following global variables (set at the bottom of this file):
     client_active_timeout [timedelta] : how often a client needs to interact with the server to remain active
+    wait_to_start_first_game [timedelta] : how long to wait after a client logs in to the server for the first time
+        before requesting template bots to initiate a new game
+    wait_to_start_subsequent_games [timedelta] : how long to wait after a client finishes a game before requesting
+        template bots to initiate a new game
+    wait_to_start [timedelta] : how long to wait after a client's .waiting_for_game_since before requesting  template
+        bots to initiate a new game
+    wait_after_game [timedelta] : how much time to add on to a client's .waiting_for_game_since after a game is
+        completed
     min_clients_to_start_new_game [int] : how large the queue of available players needs to be before a new game can be
         started
     max_active_games_per_player [int] : how many games a player can participate in at once
@@ -66,6 +74,9 @@ class Clientlist(object):
     Functions:
         .client_touch(player_id) : Called whenever a client interacts with the server to prevent them timing out
         .add_client(player_id) : Used to add new clients to the clientlist
+        .template_bots_needed() [int] : Checks if there are any clients that have been waiting beyond a threshold before
+            a template bot will step in. If so, returns the number of template bots needed to begin a game.
+        .bots_in_active_games() [list[int]] : returns the player_ID of all bots currently involved in active_games
 
     Properties:
         .active_clients [list[TWIML_codenames_API_server.Client]] : returns a list of all clients that are currently
@@ -109,6 +120,36 @@ class Clientlist(object):
         """
         self.clients[player_id] = Client(player_id, self.db)
 
+    def template_bots_needed(self):
+        """
+        Checks if there are any clients that have been waiting beyond a threshold before a template bot will step in.
+        If so, returns the number of template bots needed to begin a game
+
+        @returns num_bots [int] : the number of template bots needed
+        """
+        b_bots_needed = False
+        for client in self.clients.values():
+            if client.waiting_for_game_since + wait_to_start >= datetime.utcnow() \
+                    and client.active \
+                    and client.num_active_games == 0:
+                b_bots_needed = True
+                break
+
+        if b_bots_needed:
+            return min_clients_to_start_new_game - len(self.available_clients)
+        else:
+            return 0
+
+    def bots_in_active_games(self):
+        """
+        @returns botlist list[int] : the player_ID of all bots currently involved in active_games
+        """
+        botlist=[]
+        for client in self.clients.values():
+            if client.player_id < 1000 and client.num_active_games > 0:
+                botlist.append(client.player_id)
+        return botlist
+
     @property
     def active_clients(self):
         """
@@ -145,6 +186,8 @@ class Client(object):
         .player_id [int] : the unique 4-digit player identifier
         .player [TWIML_codenames.Player] : the TWIML_codenames.Player object for this player
         .last_active [datetime] : the timestamp of the most recent time the client interacted with the server
+        .waiting_for_game_since [datetime] : the timestamp of the most recent time the client has started waiting for a
+            game
         .prev_active [datetime] : the timestamp of the 2nd-most recent time the client interacted with the server
         .active_games [dict] : a nested dictionary of form {game_id : role_info} for each active game this player is
             involved in. role_info is itself a dictionary of form:
@@ -181,7 +224,8 @@ class Client(object):
         @param db [pymongo db] : a connection to the pymongo db
         """
         self.player_id = player_id
-        self.last_active = datetime.now()
+        self.last_active = datetime.utcnow()
+        self.waiting_for_game_since = datetime.utcnow()
         self.prev_active = 0
         self.active_games = {}
         self.ended_games = {}
@@ -212,8 +256,13 @@ class Client(object):
         """
         Updates the .last_active and .prev_active timestamps
         """
+        # Check if this is the client's first touch after being inactive:
+        if not self.active:
+            # if this client had been inactive, reset the waiting_for_game counter
+            self.waiting_for_game_since = datetime.utcnow()
+
         self.prev_active = self.last_active
-        self.last_active = datetime.now()
+        self.last_active = datetime.utcnow()
         
     def return_status(self, gamelist):
         """
@@ -317,13 +366,14 @@ class Client(object):
                                          'result': game_result
                                          }
             del self.active_games[game_id]
+            self.waiting_for_game_since = datetime.utcnow() + wait_after_game
 
     @property
     def active(self):
         """
         @returns [bool] : True if the client has interacted with the server more recently than the client_active_timeout
         """
-        return (datetime.now()-self.last_active < client_active_timeout)
+        return (datetime.utcnow()-self.last_active < client_active_timeout)
 
     @property
     def num_active_games(self):
@@ -668,6 +718,10 @@ def scrub_game_log(game_dict, player_id):
 ------------------------------------------------------------------------------------------------------------------------
 """
 client_active_timeout = timedelta(minutes = 5)
+wait_to_start_first_game = timedelta(seconds=10)
+wait_to_start_subsequent_games = timedelta(minutes=10)
+wait_to_start = wait_to_start_first_game
+wait_after_game = wait_to_start_subsequent_games - wait_to_start_first_game
 min_clients_to_start_new_game = 6 # needs to be >4 or a new game will start with the same players each time a game ends
 max_active_games_per_player = 1
 # load the list of words from which the gameboards will randomly select 25 words when generated:
