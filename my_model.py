@@ -21,6 +21,7 @@ Add/modify as necessary
 ### YOUR CODE HERE
 import spacy # after installing, be sure to run 'python -m spacy download en_core_web_lg'
 import itertools
+import pickle
 ### END YOUR CODE
 
 """
@@ -35,8 +36,14 @@ For example, if you are loading word vectors, load them here as global variables
 nlp = spacy.load("en_core_web_lg") # if OSError: [E050] Can't find model 'en_core_web_lg', run this from command line:
                                    # 'python -m spacy download en_core_web_lg'
 
-# nounlist.txt sourced from http://www.desiquintans.com/nounlist
-clue_word_candidates = [line.strip() for line in open('nounlist.txt', 'r').readlines()]
+# clue_word_distances is a dict containing a 2D numpy array of word distances that have already been pre-calculated in
+# order to speed up compute time. The dict also contains 2 additional dicts, both of form {word:index}, for the words on
+# the 2 axes: the first axis ('boardwords') is the list of words that the gameboards can be made from, while the second
+# axis ('clue_words') is the list of candidate clue words. Boardwords is a list of 400 words, a copy of wordlist.txt.
+# clue_words is a list of 6698 nouns based on nounlist.txt sourced from http://www.desiquintans.com/nounlist
+# Note: wordlist will be a different set of words for week 2 than week 1. You will need to re-download
+# 'clue_word_distances.pkl' from the repo after week 1 is complete before entering your bot in week 2
+clue_word_distances = pickle.load(open('clue_word_distances.pkl','rb'))
 ### END YOUR CODE
 
 """
@@ -104,7 +111,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
 
     # filter out words that contain, or are contained in, words on the board:
     full_candidates=[]
-    for candidate in clue_word_candidates:
+    for candidate in clue_word_distances['clue_words'].keys(): # see definition of clue_word_distances in the 'Your Global Variables' section above.
         duplicate = False
         for unguessed_word in gameboard.unguessed_words():
             if candidate in unguessed_word:
@@ -116,20 +123,28 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
         if duplicate == False:
             full_candidates.append(candidate)
 
+    # sample down the list of candidates by a factor of 3 for two reasons: 1) to improve runtime and 2) to avoid getting
+    # stuck giving the same clue word over and over again
     candidates = [word for word in
-                  np.random.choice(full_candidates,1000, replace=False)] # number of words reduced to improve runtime
+                  np.random.choice(full_candidates, len(full_candidates)//3, replace=False)]
 
     good_word_distances = {}
     for good_word in unguessed_good_words:
         good_word_distances[good_word] = {}
         for clue_candidate in candidates:
-            good_word_distances[good_word][clue_candidate] = dist(good_word, clue_candidate)
+            good_word_distances[good_word][clue_candidate] = clue_word_distances['distances'][
+                clue_word_distances['boardwords'][good_word], # the index number of the good_word on the boardwords index
+                clue_word_distances['clue_words'][clue_candidate] # the index number of the clue_candidate on the clue_words index
+            ]
 
     bad_word_distances = {}
     for bad_word in unguessed_bad_words:
         bad_word_distances[bad_word] = {}
         for clue_candidate in candidates:
-            bad_word_distances[bad_word][clue_candidate] = dist(bad_word, clue_candidate)
+            bad_word_distances[bad_word][clue_candidate] = clue_word_distances['distances'][
+                clue_word_distances['boardwords'][bad_word], # the index number of the bad_word on the boardwords index
+                clue_word_distances['clue_words'][clue_candidate] # the index number of the clue_candidate on the clue_words index
+            ]
 
     clue_count = 0
     clue_word = None
@@ -189,7 +204,7 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
     # Algorithm based on the following paper:
     # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
     # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
-    threshold_for_guessing = 0.5
+    threshold_for_guessing = 0.7
 
     guesses = []
     while len(guesses) < clue_count:
