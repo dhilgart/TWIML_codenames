@@ -102,8 +102,20 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     unguessed_good_words = gameboard.unguessed_words(team_num)
     unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
 
-    #filter out words that are on the board
-    full_candidates=[word for word in clue_word_candidates if word not in gameboard.unguessed_words()]
+    # filter out words that contain, or are contained in, words on the board:
+    full_candidates=[]
+    for candidate in clue_word_candidates:
+        duplicate = False
+        for unguessed_word in gameboard.unguessed_words():
+            if candidate in unguessed_word:
+                duplicate = True
+                break
+            elif unguessed_word in candidate:
+                duplicate = True
+                break
+        if duplicate == False:
+            full_candidates.append(candidate)
+
     candidates = [word for word in
                   np.random.choice(full_candidates,1000, replace=False)] # number of words reduced to improve runtime
 
@@ -139,8 +151,9 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
                             clue_word = clue_candidate
                             clue_count = clue_count_to_try
     if not clue_word:
-        # if it didn't find a good clue word, grab a new subset of candidates to check and try again:
-        clue_word, clue_count = generate_clue(game_id, team_num, gameboard)
+        # if it didn't find a good clue word, return a random word
+        clue_word = str(np.random.choice(full_candidates,1)[0])
+        clue_count = 1
     ### END YOUR CODE
     
     return clue_word, clue_count
