@@ -205,6 +205,8 @@ def generate_guesses(game_id, team_num, clue_word, clue_count, unguessed_words, 
             unguessed_words.remove(best)
         else:
             break
+    if len(guesses) == 0:
+        guesses.append(str(np.random.choice(unguessed_words,1)[0]))
     ### END YOUR CODE
     
     return guesses
