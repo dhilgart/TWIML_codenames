@@ -150,7 +150,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     clue_word = None
     d = float('Inf')
 
-    for clue_count_to_try in range(len(unguessed_good_words)):
+    for clue_count_to_try in range(1,len(unguessed_good_words)+1):
         for good_word_combo in itertools.combinations(unguessed_good_words,clue_count_to_try):
             for clue_candidate in candidates:
                 w_d = float('Inf')
