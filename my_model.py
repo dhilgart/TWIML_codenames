@@ -105,6 +105,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
     # Cooperation and Codenames:Understanding Natural Language Processing via Codenames
     # by A. Kim, M. Ruzmaykin, A. Truong, and A. Summerville 2019
     threshold = 0.7
+    margin = 0.2
 
     unguessed_good_words = gameboard.unguessed_words(team_num)
     unguessed_bad_words = [word for word in gameboard.unguessed_words() if word not in unguessed_good_words]
@@ -148,7 +149,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
 
     clue_count = 0
     clue_word = None
-    d = float('Inf')
+    low_score = float('Inf')
 
     for clue_count_to_try in range(1,len(unguessed_good_words)+1):
         for good_word_combo in itertools.combinations(unguessed_good_words,clue_count_to_try):
@@ -157,14 +158,19 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
                 for bad_word in unguessed_bad_words:
                     if bad_word_distances[bad_word][clue_candidate] < w_d:
                         w_d = bad_word_distances[bad_word][clue_candidate]
-                    d_r = 0
-                    for good_word in good_word_combo:
-                        if good_word_distances[good_word][clue_candidate] > d_r:
-                            d_r = good_word_distances[good_word][clue_candidate]
-                        if d_r < d and d_r < w_d and d_r < threshold:
-                            d = d_r
-                            clue_word = clue_candidate
-                            clue_count = clue_count_to_try
+                d_r_sum = 0
+                d_r_max = 0
+                for good_word in good_word_combo:
+                    this_distance = good_word_distances[good_word][clue_candidate]
+                    d_r_sum += this_distance
+                    if this_distance > d_r_max:
+                        d_r_max = this_distance
+                d_r_score = d_r_sum / len(good_word_combo)
+                if d_r_score <= low_score and d_r_max < w_d - margin and d_r_max < threshold:
+                    low_score = d_r_score
+                    clue_word = clue_candidate
+                    clue_count = clue_count_to_try
+
     if not clue_word:
         # if it didn't find a good clue word, return a random word
         clue_word = str(np.random.choice(full_candidates,1)[0])
