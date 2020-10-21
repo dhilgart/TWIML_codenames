@@ -165,7 +165,7 @@ def generate_clue(game_id, team_num, gameboard: TWIML_codenames.Gameboard):
                     d_r_sum += this_distance
                     if this_distance > d_r_max:
                         d_r_max = this_distance
-                d_r_score = d_r_sum / len(good_word_combo)
+                d_r_score = d_r_sum / len(good_word_combo) / len(good_word_combo)
                 if d_r_score <= low_score and d_r_max < w_d - margin and d_r_max < threshold:
                     low_score = d_r_score
                     clue_word = clue_candidate
