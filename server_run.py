@@ -16,14 +16,6 @@ notes:
         get(completed_games) : returns a list of game_ids for all completed games
         get(num_active_clients) : returns a count of how many active clients are logged in to the server
         get(leaderboards) : returns the current leaderboards
-    This server also has 2 endpoints that should only ever be needed to manage the template bots used to fill up the
-        server when there aren't enough players connected:
-        get(template_bots_needed) : returns the number of template bots needed. Used by the host to fill up the server
-            with template bots when needed. Will almost always be 0 except for the short time between the need being
-            identified and the bots being supplied. Competitors should not have any reason to pull this endpoint.
-        get(active_bots) : returns the player_ID of all bots currently involved in active_games. Used by the host to
-            manage the template bots connected to the server. Competitors should not have any reason to pull this
-            endpoint.
     Most of the supporting functions and classes are defined in TWIML_codenames_API_Server
     The first thing done for every request is to validate the player_id with the player_key using
         TWIML_codenames_API_Server.validate(player_id,player_key)
@@ -293,27 +285,6 @@ def get_leaderboards():
          'Combined'   : list[(player_id,Elo)]}
     """
     return TWIML_codenames_API_Server.get_leaderboards(db)
-
-@app.get(root+"template_bots_needed/")
-def get_num_template_bots_needed():
-    """
-    Returns the number of template bots needed. Used by the host to fill up the server with template bots when needed.
-        Will almost always be 0 except for the short time between the need being identified and the bots being supplied.
-        Competitors should not have any reason to pull this endpoint.
-
-    @returns (int) : the number of template bots needed
-    """
-    return clientlist.template_bots_needed()
-
-@app.get(root+"active_bots/")
-def get_bots_in_active_games():
-    """
-    Returns the player_ID of all bots currently involved in active_games. Used by the host to manage the template bots
-        connected to the server. Competitors should not have any reason to pull this endpoint.
-
-    @returns list[int] : the player_ID of all bots currently involved in active_games
-    """
-    return clientlist.bots_in_active_games()
 
 if __name__ == "__main__":
    PORT = int(os.environ.get("PORT",8000))

@@ -74,9 +74,6 @@ class Clientlist(object):
     Functions:
         .client_touch(player_id) : Called whenever a client interacts with the server to prevent them timing out
         .add_client(player_id) : Used to add new clients to the clientlist
-        .template_bots_needed() [int] : Checks if there are any clients that have been waiting beyond a threshold before
-            a template bot will step in. If so, returns the number of template bots needed to begin a game.
-        .bots_in_active_games() [list[int]] : returns the player_ID of all bots currently involved in active_games
 
     Properties:
         .active_clients [list[TWIML_codenames_API_server.Client]] : returns a list of all clients that are currently
@@ -93,6 +90,11 @@ class Clientlist(object):
         """
         self.clients = {}
         self.db = db
+
+        # Instantiate the template bots (player_ID = 1, 2, and 3). Note: 3 because a maximum of 3 template bots are
+        # needed in any one game
+        for i in range(3):
+            self.add_client(i+1)
 
     def __getitem__(self, key):
         return self.clients[key]
@@ -120,43 +122,15 @@ class Clientlist(object):
         """
         self.clients[player_id] = Client(player_id, self.db)
 
-    def template_bots_needed(self):
-        """
-        Checks if there are any clients that have been waiting beyond a threshold before a template bot will step in.
-        If so, returns the number of template bots needed to begin a game
-
-        @returns num_bots [int] : the number of template bots needed
-        """
-        b_bots_needed = False
-        for client in self.clients.values():
-            if client.waiting_for_game_since + wait_to_start >= datetime.utcnow() \
-                    and client.active \
-                    and client.num_active_games == 0:
-                b_bots_needed = True
-                break
-
-        if b_bots_needed:
-            return min_clients_to_start_new_game - len(self.available_clients)
-        else:
-            return 0
-
-    def bots_in_active_games(self):
-        """
-        @returns botlist list[int] : the player_ID of all bots currently involved in active_games
-        """
-        botlist=[]
-        for client in self.clients.values():
-            if client.player_id < 1000 and client.num_active_games > 0:
-                botlist.append(client.player_id)
-        return botlist
-
     @property
     def active_clients(self):
         """
         @returns [list[TWIML_codenames_API_server.Client]] : a list of all the clients that are currently active (those
             who have interacted with the server in any way within the client_active_timeout duration)
         """
-        active_clients = [client for client in self.clients.values() if client.active]
+        active_clients = [client for client in self.clients.values() if client.active
+                          and client.player_id > 1000 # player_IDs less than 1000 are template bots
+                          ]
         return active_clients
 
     @property
@@ -176,7 +150,16 @@ class Clientlist(object):
 
         @returns [bool] : True if a new game can be started
         """
-        return len(self.available_clients) >= min_clients_to_start_new_game
+        if len(self.available_clients) >= min_clients_to_start_new_game:
+            return True
+        else:
+            start_game_early = False
+            for client in self.available_clients:
+                if datetime.utcnow() >= client.waiting_for_game_since + wait_to_start \
+                        and client.num_active_games == 0:
+                    start_game_early = True
+                    break
+            return start_game_early
 
 class Client(object):
     """
@@ -448,6 +431,14 @@ class Gamelist(object):
 
         @param available_clients list[Client] : the queue of clients who are available to start a new game
         """
+        # If this game is starting early (if a player on the server has been waiting too long for a game to start),
+        # there may be fewer than 4 clients in the available_clients list. In this case, append template bots until the
+        # available_clients list has at least 4 clients
+        for i in range(4 - len(available_clients)):
+            available_clients.append(
+                self.clientlist[i+1] # a pointer to a template bot's Client object
+            )
+
         num_new_games = len(available_clients) // 4
         random.shuffle(available_clients)
         for i in range(num_new_games):
