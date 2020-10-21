@@ -293,7 +293,8 @@ class Game(object):
         @returns team_num [int] : the player's team number <1 or 2>
         @returns gameboard [TWIML_codenames.Gameboard] : the current gameboard
         """
-        self.waiting_inputs_since = datetime.utcnow()
+        if self.waiting_query_since > self.waiting_inputs_since: # if the game had been waiting on query
+            self.waiting_inputs_since = datetime.utcnow()
         
         return self.curr_team, self.gameboard
 
@@ -351,7 +352,8 @@ class Game(object):
         boardwords = self.gameboard.boardwords
         boardmarkers = self.gameboard.boardmarkers
 
-        self.waiting_inputs_since = datetime.utcnow()
+        if self.waiting_query_since > self.waiting_inputs_since: # if the game had been waiting on query
+            self.waiting_inputs_since = datetime.utcnow()
         
         return team_num, clue_word, clue_count, unguessed_words, boardwords, boardmarkers
 
