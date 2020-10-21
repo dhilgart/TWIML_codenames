@@ -602,7 +602,7 @@ def get_leaderboards(db):
          'Operatives' : list[(player_id,Elo)],
          'Combined'   : list[(player_id,Elo)]}
     """
-    results = db.players.find(projection=['player_id', 'Elo'])
+    results = db.players.find()
     leaderboards = {'Spymasters': [],
                     'Operatives': [],
                     'Combined': []
@@ -610,8 +610,12 @@ def get_leaderboards(db):
     for player in results:
         player_id = player['player_id']
         Elo = player['Elo']
-        leaderboards['Spymasters'].append((player_id, Elo['Spymaster']))
-        leaderboards['Operatives'].append((player_id, Elo['Operative']))
+        leaderboards['Spymasters'].append((player_id,
+                                           Elo['Spymaster'],
+                                           f'{player["record"]["Spymaster"]["W"]}-{player["record"]["Spymaster"]["L"]}'))
+        leaderboards['Operatives'].append((player_id,
+                                           Elo['Operative'],
+                                           f'{player["record"]["Operative"]["W"]}-{player["record"]["Operative"]["L"]}'))
         leaderboards['Combined'].append((player_id, (Elo['Spymaster'] + Elo['Operative'])/2))
 
     for key, leaderboard in leaderboards.items():
